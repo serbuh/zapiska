@@ -19,7 +19,10 @@ struct ChannelConfig
 
 QVector<ChannelConfig> defaultChannels();
 
+QVector<ChannelConfig> loadChannelsFromFile(const QString &filePath, QString *errorMessage = nullptr);
+
+QString defaultChannelConfigPath();
+
 QString formatFrequencyMHz(qint64 frequencyHz);
 
 } // namespace marine
-

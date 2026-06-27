@@ -17,7 +17,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     buildUi();
-    populateChannels();
+    loadChannels();
 }
 
 void MainWindow::buildUi()
@@ -32,6 +32,7 @@ void MainWindow::buildUi()
     deviceStateLabel = new QLabel(tr("Device: disconnected"), toolbar);
     centerFrequencyLabel = new QLabel(tr("Center: 156.800 MHz"), toolbar);
     sampleRateLabel = new QLabel(tr("Sample rate: 2.000 MS/s"), toolbar);
+    channelCatalogLabel = new QLabel(tr("Channels: loading"), toolbar);
 
     auto *connectButton = new QPushButton(tr("Connect"), toolbar);
     connectButton->setEnabled(false);
@@ -45,6 +46,8 @@ void MainWindow::buildUi()
     toolbarLayout->addWidget(centerFrequencyLabel);
     toolbarLayout->addSpacing(16);
     toolbarLayout->addWidget(sampleRateLabel);
+    toolbarLayout->addSpacing(16);
+    toolbarLayout->addWidget(channelCatalogLabel);
     toolbarLayout->addStretch();
     toolbarLayout->addWidget(connectButton);
     toolbarLayout->addWidget(startButton);
@@ -74,9 +77,38 @@ void MainWindow::buildUi()
     resize(900, 420);
 }
 
-void MainWindow::populateChannels()
+void MainWindow::loadChannels()
 {
-    const auto channels = marine::defaultChannels();
+    const QString path = marine::defaultChannelConfigPath();
+    QString errorMessage;
+    const auto allChannels = marine::loadChannelsFromFile(path, &errorMessage);
+    QVector<marine::ChannelConfig> visibleChannels;
+
+    for (const auto &channel : allChannels) {
+        if (channel.enabledByDefault) {
+            visibleChannels.append(channel);
+        }
+    }
+
+    if (allChannels.isEmpty()) {
+        const auto fallbackChannels = marine::defaultChannels();
+        channelCatalogLabel->setText(tr("Channels: fallback (%1)").arg(errorMessage));
+        populateChannels(fallbackChannels);
+        return;
+    }
+
+    if (visibleChannels.isEmpty()) {
+        visibleChannels = allChannels;
+    }
+
+    channelCatalogLabel->setText(tr("Channels: %1 loaded, %2 enabled")
+        .arg(allChannels.size())
+        .arg(visibleChannels.size()));
+    populateChannels(visibleChannels);
+}
+
+void MainWindow::populateChannels(const QVector<marine::ChannelConfig> &channels)
+{
     channelTable->setRowCount(channels.size());
 
     for (int row = 0; row < channels.size(); ++row) {

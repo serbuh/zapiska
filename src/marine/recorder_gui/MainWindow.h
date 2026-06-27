@@ -1,6 +1,9 @@
 #pragma once
 
+#include "MarineCore.h"
+
 #include <QMainWindow>
+#include <QVector>
 
 class QLabel;
 class QProgressBar;
@@ -15,11 +18,12 @@ public:
 
 private:
     void buildUi();
-    void populateChannels();
+    void loadChannels();
+    void populateChannels(const QVector<marine::ChannelConfig> &channels);
 
     QLabel *deviceStateLabel = nullptr;
     QLabel *centerFrequencyLabel = nullptr;
     QLabel *sampleRateLabel = nullptr;
+    QLabel *channelCatalogLabel = nullptr;
     QTableWidget *channelTable = nullptr;
 };
-

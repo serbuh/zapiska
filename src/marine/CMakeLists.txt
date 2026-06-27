@@ -25,5 +25,14 @@ target_link_libraries(marine-recorder-gui
         ${ZAPISKA_QT_PACKAGE}::Widgets
 )
 
-install(TARGETS marine-recorder-gui RUNTIME DESTINATION bin)
+set(ZAPISKA_CHANNEL_DATA_FILE ${PROJECT_SOURCE_DIR}/data/marine_channels.json)
 
+add_custom_command(TARGET marine-recorder-gui POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:marine-recorder-gui>/data"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${ZAPISKA_CHANNEL_DATA_FILE}"
+        "$<TARGET_FILE_DIR:marine-recorder-gui>/data/marine_channels.json"
+)
+
+install(TARGETS marine-recorder-gui RUNTIME DESTINATION bin)
+install(FILES "${ZAPISKA_CHANNEL_DATA_FILE}" DESTINATION bin/data)
