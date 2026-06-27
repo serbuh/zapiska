@@ -1,6 +1,8 @@
 add_library(marine-core STATIC
     core/MarineCore.cpp
     core/MarineCore.h
+    core/SdrSource.cpp
+    core/SdrSource.h
 )
 
 target_include_directories(marine-core

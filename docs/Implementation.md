@@ -24,10 +24,17 @@ This document tracks the current implementation state for Zapiska's marine recor
   - catalog channel picker,
   - add selected channel,
   - remove selected visible channel.
+- Added the `SdrSource` interface in `marine-core`.
+- Added SDR core data types for:
+  - device discovery,
+  - source configuration,
+  - IQ sample blocks,
+  - stream statistics,
+  - source state updates.
 
 ## Current Step
 
-Step 3 is complete: the recorder GUI can display Channel 16 by default and add/remove other loaded catalog channels at runtime.
+Step 4 is complete: `marine-core` now has the SDR source abstraction needed by the future HackRF/SoapySDR backend.
 
 ## Verification
 
@@ -36,19 +43,18 @@ Step 3 is complete: the recorder GUI can display Channel 16 by default and add/r
 
 ## Left To Do
 
-1. Add an `SdrSource` interface in `marine-core`.
-2. Add a HackRF/SoapySDR implementation behind `SdrSource`.
-3. Stream IQ samples and compute raw wideband power.
-4. Display live HackRF power in the recorder GUI.
-5. Add `ChannelReceiver` for per-channel frequency offset and channel power.
-6. Add NFM demodulation and audio level measurement.
-7. Add WAV recording for Channel 16.
-8. Add JSON sidecar metadata for recordings.
-9. Add a configurable second channel display.
-10. Add per-channel squelch state and threshold controls.
-11. Add per-channel recording controls.
-12. Add a separate playback GUI for recorded WAV files.
-13. Add squelch-gated segment recording and timeline metadata.
+1. Add a HackRF/SoapySDR implementation behind `SdrSource`.
+2. Stream IQ samples and compute raw wideband power.
+3. Display live HackRF power in the recorder GUI.
+4. Add `ChannelReceiver` for per-channel frequency offset and channel power.
+5. Add NFM demodulation and audio level measurement.
+6. Add WAV recording for Channel 16.
+7. Add JSON sidecar metadata for recordings.
+8. Add a configurable second channel display.
+9. Add per-channel squelch state and threshold controls.
+10. Add per-channel recording controls.
+11. Add a separate playback GUI for recorded WAV files.
+12. Add squelch-gated segment recording and timeline metadata.
 
 ## Notes
 
