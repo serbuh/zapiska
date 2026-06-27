@@ -1,0 +1,96 @@
+#include "GrOsmoSdrSource.h"
+
+#include <QCoreApplication>
+#include <QDebug>
+#include <QFile>
+#include <QTemporaryFile>
+#include <QThread>
+
+namespace {
+
+QString valueAfter(const QStringList &args, const QString &name)
+{
+    const int index = args.indexOf(name);
+    if (index < 0 || index + 1 >= args.size()) {
+        return {};
+    }
+
+    return args.at(index + 1);
+}
+
+int intValueAfter(const QStringList &args, const QString &name, int fallback)
+{
+    bool ok = false;
+    const int value = valueAfter(args, name).toInt(&ok);
+    return ok ? value : fallback;
+}
+
+bool writeZeroIqFile(QTemporaryFile &file)
+{
+    if (!file.open()) {
+        return false;
+    }
+
+    const QByteArray zeros(1024 * 1024, '\0');
+    return file.write(zeros) == zeros.size() && file.flush();
+}
+
+QString defaultFileDeviceArgs(QTemporaryFile &file)
+{
+    return QStringLiteral("file=%1,rate=96000,freq=156800000,repeat=true,throttle=true")
+        .arg(file.fileName());
+}
+
+} // namespace
+
+int main(int argc, char *argv[])
+{
+    QCoreApplication app(argc, argv);
+    const QStringList args = app.arguments();
+
+    QTemporaryFile fileSource;
+    QString deviceArgs = valueAfter(args, QStringLiteral("--device-args"));
+    if (deviceArgs.isEmpty()) {
+        if (!writeZeroIqFile(fileSource)) {
+            qCritical() << "failed to create temporary IQ file source";
+            return 2;
+        }
+        deviceArgs = defaultFileDeviceArgs(fileSource);
+    }
+
+    marine::GrOsmoSdrSource source;
+
+    QString error;
+    if (args.contains(QStringLiteral("--discover"))) {
+        const auto devices = source.discoverDevices(&error);
+        if (!error.isEmpty()) {
+            qWarning() << "discovery warning:" << error;
+        }
+        qInfo() << "discovered devices:" << devices.size();
+    }
+
+    marine::SdrSourceConfig config;
+    config.deviceArgs = deviceArgs;
+    config.centerFrequencyHz = 156800000;
+    config.sampleRateHz = intValueAfter(args, QStringLiteral("--sample-rate"), 96000);
+    config.gainDb = 0.0;
+
+    if (!source.open(config, &error)) {
+        qCritical() << "open failed:" << error;
+        return 3;
+    }
+
+    if (!source.start(&error)) {
+        qCritical() << "start failed:" << error;
+        return 4;
+    }
+
+    const int durationMs = intValueAfter(args, QStringLiteral("--duration-ms"), 200);
+    QThread::msleep(static_cast<unsigned long>(durationMs));
+
+    source.stop();
+    source.close();
+
+    qInfo() << "sdr smoke completed";
+    return 0;
+}

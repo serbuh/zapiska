@@ -1,9 +1,15 @@
 add_library(marine-core STATIC
+    core/GrOsmoSdrSource.cpp
+    core/GrOsmoSdrSource.h
     core/MarineCore.cpp
     core/MarineCore.h
     core/SdrSource.cpp
     core/SdrSource.h
 )
+
+find_package(Gnuradio REQUIRED COMPONENTS blocks)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GR_OSMOSDR REQUIRED IMPORTED_TARGET gnuradio-osmosdr)
 
 target_include_directories(marine-core
     PUBLIC
@@ -13,6 +19,9 @@ target_include_directories(marine-core
 target_link_libraries(marine-core
     PUBLIC
         ${ZAPISKA_QT_PACKAGE}::Core
+    PRIVATE
+        gnuradio::gnuradio-blocks
+        PkgConfig::GR_OSMOSDR
 )
 
 add_executable(marine-recorder-gui
@@ -25,6 +34,15 @@ target_link_libraries(marine-recorder-gui
     PRIVATE
         marine-core
         ${ZAPISKA_QT_PACKAGE}::Widgets
+)
+
+add_executable(marine-sdr-smoke
+    tools/sdr_smoke.cpp
+)
+
+target_link_libraries(marine-sdr-smoke
+    PRIVATE
+        marine-core
 )
 
 set(ZAPISKA_CHANNEL_DATA_FILE ${PROJECT_SOURCE_DIR}/data/marine_channels.json)

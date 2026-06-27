@@ -31,46 +31,52 @@ This document tracks the current implementation state for Zapiska's marine recor
   - IQ sample blocks,
   - stream statistics,
   - source state updates.
+- Added `GrOsmoSdrSource`, the initial GNU Radio/gr-osmosdr backend.
+- Added CMake requirements for GNU Radio blocks/runtime and gr-osmosdr.
+- Added a first flowgraph lifecycle path:
+  - GNU Radio `top_block`,
+  - `osmosdr::source`,
+  - GNU Radio `null_sink`,
+  - open/start/stop/close.
+- Added `marine-sdr-smoke`, a console smoke test for the SDR backend lifecycle.
 
 ## Current Step
 
-Step 4 is complete: `marine-core` now has the SDR source abstraction needed by the future GNU Radio/gr-osmosdr backend.
+Step 5 is complete: `marine-core` now has a GNU Radio/gr-osmosdr source backend that can create and run a minimal source flowgraph.
 
 ## Verification
 
 - Configured the project with CMake using `/tmp/zapiska-build`.
 - Built the `marine-recorder-gui` target successfully.
+- Built and ran `marine-sdr-smoke` against a temporary gr-osmosdr file source.
 
 ## Left To Do
 
-1. Add a GNU Radio/gr-osmosdr implementation behind `SdrSource`.
-2. Stream IQ samples and compute raw wideband power.
-3. Display live HackRF power in the recorder GUI.
-4. Add `ChannelReceiver` for per-channel frequency offset and channel power.
-5. Add NFM demodulation and audio level measurement.
-6. Add WAV recording for Channel 16.
-7. Add JSON sidecar metadata for recordings.
-8. Add a configurable second channel display.
-9. Add per-channel squelch state and threshold controls.
-10. Add per-channel recording controls.
-11. Add a separate playback GUI for recorded WAV files.
-12. Add squelch-gated segment recording and timeline metadata.
+1. Stream IQ samples and compute raw wideband power.
+2. Display live HackRF power in the recorder GUI.
+3. Add `ChannelReceiver` for per-channel frequency offset and channel power.
+4. Add NFM demodulation and audio level measurement.
+5. Add WAV recording for Channel 16.
+6. Add JSON sidecar metadata for recordings.
+7. Add a configurable second channel display.
+8. Add per-channel squelch state and threshold controls.
+9. Add per-channel recording controls.
+10. Add a separate playback GUI for recorded WAV files.
+11. Add squelch-gated segment recording and timeline metadata.
 
 ## Immediate Next Step
 
-Add `GrOsmoSdrSource` in `marine-core`.
+Add wideband power measurement to `GrOsmoSdrSource`.
 
 Acceptance criteria:
 
-- CMake finds GNU Radio runtime and gr-osmosdr.
-- `GrOsmoSdrSource` implements the existing `SdrSource` interface.
-- The backend can create a GNU Radio `top_block`.
-- The backend can create an `osmosdr::source` using a HackRF-compatible device string.
-- The backend can apply center frequency, sample rate, and basic gain settings.
-- Start/stop lifecycle works without involving the recorder GUI yet.
-- If GNU Radio or gr-osmosdr is missing, CMake fails clearly rather than silently building an unusable backend.
+- Add a small GNU Radio sink/probe block for complex IQ samples.
+- Compute reduced-rate wideband power from the shared IQ stream.
+- Update `SdrStreamStats.samplesRead`.
+- Emit reduced-rate stats updates suitable for GUI display.
+- Keep the GUI decoupled from high-rate IQ blocks.
 
-After that, the next slice should add a small GNU Radio sink/probe block that computes wideband IQ power and reports it to the GUI.
+After that, wire the recorder GUI Connect/Start buttons to `GrOsmoSdrSource`.
 
 ## Notes
 
