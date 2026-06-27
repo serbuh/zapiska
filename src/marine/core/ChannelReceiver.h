@@ -31,6 +31,9 @@ public:
     static sptr make(const ChannelReceiverConfig &config, Callback callback);
 
     void connectInput(const gr::top_block_sptr &topBlock, const gr::basic_block_sptr &source);
+    void connectAudioOutput(const gr::top_block_sptr &topBlock,
+        const gr::basic_block_sptr &destination,
+        int destinationPort);
     SdrChannelStats initialStats() const;
 
 private:

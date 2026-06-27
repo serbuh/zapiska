@@ -141,6 +141,8 @@ void MainWindow::buildUi()
     startButton->setEnabled(false);
     stopButton = new QPushButton(tr("Stop"), toolbar);
     stopButton->setEnabled(false);
+    monitorButton = new QPushButton(tr("Monitor"), toolbar);
+    monitorButton->setEnabled(false);
     recordButton = new QPushButton(tr("Record"), toolbar);
     recordButton->setEnabled(false);
 
@@ -151,6 +153,7 @@ void MainWindow::buildUi()
     toolbarLayout->addWidget(connectButton);
     toolbarLayout->addWidget(startButton);
     toolbarLayout->addWidget(stopButton);
+    toolbarLayout->addWidget(monitorButton);
     toolbarLayout->addWidget(recordButton);
 
     sdrMetricsLayout->addWidget(centerFrequencyLabel);
@@ -195,6 +198,7 @@ void MainWindow::buildUi()
     connect(connectButton, &QPushButton::clicked, this, &MainWindow::toggleSdrConnection);
     connect(startButton, &QPushButton::clicked, this, &MainWindow::startSdr);
     connect(stopButton, &QPushButton::clicked, this, &MainWindow::stopSdr);
+    connect(monitorButton, &QPushButton::clicked, this, &MainWindow::toggleLiveAudio);
     connect(addChannelButton, &QPushButton::clicked, this, &MainWindow::addSelectedChannel);
     connect(removeChannelButton, &QPushButton::clicked, this, &MainWindow::removeSelectedChannel);
     connect(channelTable, &QTableWidget::itemSelectionChanged, this, &MainWindow::updateRemoveButtonState);
@@ -343,6 +347,21 @@ void MainWindow::stopSdr()
     refreshSdrControls();
 }
 
+void MainWindow::toggleLiveAudio()
+{
+    const bool enableLiveAudio = !sdrSource.liveAudioEnabled();
+    QString errorMessage;
+    if (!sdrSource.setLiveAudioEnabled(enableLiveAudio, &errorMessage)) {
+        handleSdrError(errorMessage);
+        refreshSdrControls();
+        return;
+    }
+
+    sdrStatusLabel->setText(enableLiveAudio ? tr("SDR: live monitor enabled") : tr("SDR: live monitor muted"));
+    statusBar()->showMessage(enableLiveAudio ? tr("Live monitor enabled") : tr("Live monitor muted"), 3000);
+    refreshSdrControls();
+}
+
 void MainWindow::handleSdrStateChanged(marine::SdrSourceState state)
 {
     deviceStateLabel->setText(tr("Backend: %1 (%2)")
@@ -378,11 +397,14 @@ void MainWindow::refreshSdrControls()
     const bool isOpen = state == marine::SdrSourceState::Open
         || state == marine::SdrSourceState::Streaming;
     const bool isStreaming = state == marine::SdrSourceState::Streaming;
+    const bool liveAudioEnabled = sdrSource.liveAudioEnabled();
 
     connectButton->setText(isOpen ? tr("Disconnect") : tr("Connect"));
     connectButton->setEnabled(true);
     startButton->setEnabled(state == marine::SdrSourceState::Open);
     stopButton->setEnabled(isStreaming);
+    monitorButton->setText(liveAudioEnabled ? tr("Mute") : tr("Monitor"));
+    monitorButton->setEnabled(isOpen);
     recordButton->setEnabled(false);
 }
 

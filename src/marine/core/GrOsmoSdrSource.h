@@ -20,6 +20,8 @@ public:
     void close() override;
     bool start(QString *errorMessage = nullptr) override;
     void stop() override;
+    bool setLiveAudioEnabled(bool enabled, QString *errorMessage = nullptr) override;
+    bool liveAudioEnabled() const override;
     SdrSourceState state() const override;
     SdrSourceConfig config() const override;
     SdrStreamStats stats() const override;
@@ -30,4 +32,3 @@ private:
 };
 
 } // namespace marine
-

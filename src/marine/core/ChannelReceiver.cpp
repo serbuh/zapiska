@@ -170,6 +170,13 @@ void ChannelReceiver::connectInput(const gr::top_block_sptr &topBlock, const gr:
     topBlock->connect(impl->demodulator, 0, impl->audioLevelSink, 0);
 }
 
+void ChannelReceiver::connectAudioOutput(const gr::top_block_sptr &topBlock,
+    const gr::basic_block_sptr &destination,
+    int destinationPort)
+{
+    topBlock->connect(impl->demodulator, 0, destination, destinationPort);
+}
+
 SdrChannelStats ChannelReceiver::initialStats() const
 {
     return impl->stats;

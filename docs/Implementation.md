@@ -69,10 +69,17 @@ This document tracks the current implementation state for Zapiska's marine recor
   - audio level in dBFS.
 - Wired the recorder GUI audio meter to live Channel 16 audio level.
 - Extended `marine-sdr-smoke` to fail if demodulated audio samples or audio-level updates are not produced.
+- Added live audio monitoring:
+  - `SdrSource` live-audio enable/disable API,
+  - GNU Radio audio sink backend,
+  - per-channel audio gains,
+  - mixed playback of all active channel receivers,
+  - recorder GUI Monitor/Mute control.
+- Extended `marine-sdr-smoke` with `--live-audio` for explicit monitor-path checks.
 
 ## Current Step
 
-Step 9 is complete: `marine-core` now demodulates Channel 16 NFM audio enough to report audio sample counts and reduced-rate audio level.
+Step 10 is complete: the recorder can play live demodulated audio through the system audio device, with active channels mixed into one monitor output.
 
 ## Verification
 
@@ -89,28 +96,30 @@ Step 9 is complete: `marine-core` now demodulates Channel 16 NFM audio enough to
 - Verified that `marine-sdr-smoke` reports Channel 16 audio samples and audio level for both:
   - the temporary file source,
   - the attached HackRF One.
+- Rebuilt `marine-recorder-gui` and `marine-sdr-smoke` after adding live audio monitoring.
+- Verified that `marine-sdr-smoke --live-audio` opens the monitor path against the temporary file source.
 
 ## Left To Do
 
-1. Add WAV recording for Channel 16.
-2. Add JSON sidecar metadata for recordings.
-3. Add a configurable second channel display.
-4. Add per-channel squelch state and threshold controls.
+1. Add per-channel squelch state, thresholds, and live-monitor muting.
+2. Add WAV recording for Channel 16.
+3. Add JSON sidecar metadata for recordings.
+4. Add a configurable second channel display.
 5. Add per-channel recording controls.
 6. Add a separate playback GUI for recorded WAV files.
 7. Add squelch-gated segment recording and timeline metadata.
 
 ## Immediate Next Step
 
-Add WAV recording for Channel 16.
+Add per-channel squelch state, thresholds, and live-monitor muting.
 
 Acceptance criteria:
 
-- Add a core recording path that can write Channel 16 demodulated audio to a WAV file.
-- Keep the first recorder manually controlled and continuous; squelch-gated segmenting remains a later step.
-- Enable the GUI Record control only when the SDR is streaming and Channel 16 audio is available.
-- Surface recording errors in the GUI.
-- Extend smoke or add a focused recorder check that proves a WAV file is created with non-zero audio frames.
+- Compute a reduced-rate squelch-open/squelched state for each active channel.
+- Add a default threshold suitable for initial Channel 16 experiments.
+- Show squelch state in the recorder GUI.
+- Mute squelched channels in the live monitor mix.
+- Keep WAV recording out of this step.
 
 ## Notes
 

@@ -30,6 +30,7 @@ private:
     void toggleSdrConnection();
     void startSdr();
     void stopSdr();
+    void toggleLiveAudio();
     void handleSdrStateChanged(marine::SdrSourceState state);
     void handleSdrStatsUpdated(const marine::SdrStreamStats &stats);
     void handleSdrError(const QString &message);
@@ -55,6 +56,7 @@ private:
     QPushButton *connectButton = nullptr;
     QPushButton *startButton = nullptr;
     QPushButton *stopButton = nullptr;
+    QPushButton *monitorButton = nullptr;
     QPushButton *recordButton = nullptr;
     QComboBox *channelSelector = nullptr;
     QPushButton *addChannelButton = nullptr;

@@ -80,6 +80,14 @@ int main(int argc, char *argv[])
         return 3;
     }
 
+    if (args.contains(QStringLiteral("--live-audio"))) {
+        if (!source.setLiveAudioEnabled(true, &error)) {
+            qCritical() << "live audio failed:" << error;
+            return 7;
+        }
+        qInfo() << "live audio enabled";
+    }
+
     if (!source.start(&error)) {
         qCritical() << "start failed:" << error;
         return 4;
@@ -111,19 +119,19 @@ int main(int argc, char *argv[])
     }
     if (finalStats.channelStats.isEmpty()) {
         qCritical() << "smoke failed: no channel receivers were configured";
-        return 7;
+        return 8;
     }
     if (!finalStats.channelStats.first().hasPower) {
         qCritical() << "smoke failed: no channel power update was produced";
-        return 8;
+        return 9;
     }
     if (finalStats.channelStats.first().audioSamplesRead == 0) {
         qCritical() << "smoke failed: no demodulated audio samples were read";
-        return 9;
+        return 10;
     }
     if (!finalStats.channelStats.first().hasAudioLevel) {
         qCritical() << "smoke failed: no audio level update was produced";
-        return 10;
+        return 11;
     }
 
     qInfo() << "sdr smoke completed";

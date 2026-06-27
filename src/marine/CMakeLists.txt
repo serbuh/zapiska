@@ -13,7 +13,7 @@ add_library(marine-core STATIC
     core/SdrSource.h
 )
 
-find_package(Gnuradio REQUIRED COMPONENTS blocks fft filter analog)
+find_package(Gnuradio REQUIRED COMPONENTS blocks fft filter analog audio)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GR_OSMOSDR REQUIRED IMPORTED_TARGET gnuradio-osmosdr)
 
@@ -30,6 +30,7 @@ target_link_libraries(marine-core
         gnuradio::gnuradio-fft
         gnuradio::gnuradio-filter
         gnuradio::gnuradio-analog
+        gnuradio::gnuradio-audio
         PkgConfig::GR_OSMOSDR
 )
 

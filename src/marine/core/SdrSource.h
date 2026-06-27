@@ -63,6 +63,7 @@ struct SdrChannelStats
 struct SdrStreamStats
 {
     bool running = false;
+    bool liveAudioEnabled = false;
     quint64 samplesRead = 0;
     quint64 droppedSamples = 0;
     bool hasWidebandPower = false;
@@ -94,6 +95,8 @@ public:
     virtual void close() = 0;
     virtual bool start(QString *errorMessage = nullptr) = 0;
     virtual void stop() = 0;
+    virtual bool setLiveAudioEnabled(bool enabled, QString *errorMessage = nullptr) = 0;
+    virtual bool liveAudioEnabled() const = 0;
     virtual SdrSourceState state() const = 0;
     virtual SdrSourceConfig config() const = 0;
     virtual SdrStreamStats stats() const = 0;

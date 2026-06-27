@@ -3,6 +3,9 @@
 #include "ChannelReceiver.h"
 #include "IqPowerSink.h"
 
+#include <gnuradio/audio/sink.h>
+#include <gnuradio/blocks/add_blk.h>
+#include <gnuradio/blocks/multiply_const.h>
 #include <gnuradio/top_block.h>
 #include <osmosdr/device.h>
 #include <osmosdr/source.h>
@@ -104,6 +107,9 @@ struct GrOsMoBlocks
     osmosdr::source::sptr source;
     IqPowerSink::sptr powerSink;
     std::vector<ChannelReceiver::sptr> channelReceivers;
+    std::vector<gr::blocks::multiply_const_ff::sptr> audioGains;
+    gr::blocks::add_ff::sptr audioMixer;
+    gr::audio::sink::sptr audioSink;
 };
 
 struct GrOsmoSdrSource::Impl
@@ -208,6 +214,103 @@ struct GrOsmoSdrSource::Impl
             statsSnapshot = activeStats;
         }
         emit owner->statsUpdated(statsSnapshot);
+    }
+
+    void emitStatsSnapshot()
+    {
+        SdrStreamStats statsSnapshot;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            statsSnapshot = activeStats;
+        }
+        emit owner->statsUpdated(statsSnapshot);
+    }
+
+    bool ensureLiveAudioBranch(QString *errorMessage)
+    {
+        if (!blocks.topBlock) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("GNU Radio gr-osmosdr source is not open");
+            }
+            return false;
+        }
+        if (blocks.channelReceivers.empty()) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("No demodulated channels are available for live audio");
+            }
+            return false;
+        }
+        if (blocks.audioSink) {
+            return true;
+        }
+
+        try {
+            const auto firstStats = blocks.channelReceivers.front()->initialStats();
+            const int audioSampleRateHz = std::max(firstStats.audioSampleRateHz, 1);
+            const float gain = 1.0F / static_cast<float>(blocks.channelReceivers.size());
+
+            blocks.audioMixer = gr::blocks::add_ff::make();
+            blocks.audioSink = gr::audio::sink::make(audioSampleRateHz);
+            blocks.audioGains.clear();
+            blocks.audioGains.reserve(blocks.channelReceivers.size());
+
+            const bool wasRunning = stats().running;
+            if (wasRunning) {
+                blocks.topBlock->lock();
+            }
+            try {
+                for (std::size_t index = 0; index < blocks.channelReceivers.size(); ++index) {
+                    auto gainBlock = gr::blocks::multiply_const_ff::make(0.0F);
+                    blocks.channelReceivers.at(index)->connectAudioOutput(blocks.topBlock, gainBlock, 0);
+                    blocks.topBlock->connect(gainBlock, 0, blocks.audioMixer, static_cast<int>(index));
+                    blocks.audioGains.push_back(std::move(gainBlock));
+                }
+                blocks.topBlock->connect(blocks.audioMixer, 0, blocks.audioSink, 0);
+            } catch (...) {
+                if (wasRunning) {
+                    blocks.topBlock->unlock();
+                }
+                throw;
+            }
+            if (wasRunning) {
+                blocks.topBlock->unlock();
+            }
+
+            for (const auto &gainBlock : blocks.audioGains) {
+                gainBlock->set_k(gain);
+            }
+            return true;
+        } catch (const std::exception &error) {
+            if (errorMessage) {
+                *errorMessage = errorText(error);
+            }
+            return false;
+        }
+    }
+
+    bool setLiveAudioEnabled(bool enabled, QString *errorMessage)
+    {
+        if (errorMessage) {
+            errorMessage->clear();
+        }
+
+        if (enabled && !ensureLiveAudioBranch(errorMessage)) {
+            return false;
+        }
+
+        const float gain = enabled && !blocks.audioGains.empty()
+            ? 1.0F / static_cast<float>(blocks.audioGains.size())
+            : 0.0F;
+        for (const auto &gainBlock : blocks.audioGains) {
+            gainBlock->set_k(gain);
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            activeStats.liveAudioEnabled = enabled;
+        }
+        emitStatsSnapshot();
+        return true;
     }
 
     void stop()
@@ -412,6 +515,16 @@ bool GrOsmoSdrSource::start(QString *errorMessage)
 void GrOsmoSdrSource::stop()
 {
     impl->stop();
+}
+
+bool GrOsmoSdrSource::setLiveAudioEnabled(bool enabled, QString *errorMessage)
+{
+    return impl->setLiveAudioEnabled(enabled, errorMessage);
+}
+
+bool GrOsmoSdrSource::liveAudioEnabled() const
+{
+    return stats().liveAudioEnabled;
 }
 
 SdrSourceState GrOsmoSdrSource::state() const
