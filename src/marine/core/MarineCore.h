@@ -1,0 +1,25 @@
+#pragma once
+
+#include <QtGlobal>
+#include <QString>
+#include <QVector>
+
+namespace marine {
+
+struct ChannelConfig
+{
+    QString id;
+    QString name;
+    qint64 frequencyHz = 0;
+    QString mode;
+    int bandwidthHz = 0;
+    bool enabledByDefault = false;
+    bool recordByDefault = false;
+};
+
+QVector<ChannelConfig> defaultChannels();
+
+QString formatFrequencyMHz(qint64 frequencyHz);
+
+} // namespace marine
+
