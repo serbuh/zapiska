@@ -20,10 +20,14 @@ This document tracks the current implementation state for Zapiska's marine recor
 - Added channel catalog loading from `data/marine_channels.json`.
 - Added a post-build copy of `data/marine_channels.json` next to `marine-recorder-gui`.
 - Updated the recorder GUI to show loaded/enabled channel counts.
+- Added runtime channel selection controls:
+  - catalog channel picker,
+  - add selected channel,
+  - remove selected visible channel.
 
 ## Current Step
 
-Step 2 is complete: the recorder GUI now loads the exported channel catalog instead of hardcoding Channel 16 directly in the window.
+Step 3 is complete: the recorder GUI can display Channel 16 by default and add/remove other loaded catalog channels at runtime.
 
 ## Verification
 
@@ -32,24 +36,23 @@ Step 2 is complete: the recorder GUI now loads the exported channel catalog inst
 
 ## Left To Do
 
-1. Add recorder GUI controls for selecting enabled channels.
-2. Add an `SdrSource` interface in `marine-core`.
-3. Add a HackRF/SoapySDR implementation behind `SdrSource`.
-4. Stream IQ samples and compute raw wideband power.
-5. Display live HackRF power in the recorder GUI.
-6. Add `ChannelReceiver` for per-channel frequency offset and channel power.
-7. Add NFM demodulation and audio level measurement.
-8. Add WAV recording for Channel 16.
-9. Add JSON sidecar metadata for recordings.
-10. Add a configurable second channel display.
-11. Add per-channel squelch state and threshold controls.
-12. Add per-channel recording controls.
-13. Add a separate playback GUI for recorded WAV files.
-14. Add squelch-gated segment recording and timeline metadata.
+1. Add an `SdrSource` interface in `marine-core`.
+2. Add a HackRF/SoapySDR implementation behind `SdrSource`.
+3. Stream IQ samples and compute raw wideband power.
+4. Display live HackRF power in the recorder GUI.
+5. Add `ChannelReceiver` for per-channel frequency offset and channel power.
+6. Add NFM demodulation and audio level measurement.
+7. Add WAV recording for Channel 16.
+8. Add JSON sidecar metadata for recordings.
+9. Add a configurable second channel display.
+10. Add per-channel squelch state and threshold controls.
+11. Add per-channel recording controls.
+12. Add a separate playback GUI for recorded WAV files.
+13. Add squelch-gated segment recording and timeline metadata.
 
 ## Notes
 
-- The first GUI controls are intentionally disabled until the SDR backend exists.
+- The SDR Connect/Start/Record controls are intentionally disabled until the SDR backend exists.
 - Channel 16 remains the only default-enabled/default-recording channel.
-- The GUI shows only default-enabled channels from the loaded catalog.
+- Channel selection is runtime-only for now; selected channels are not persisted.
 - The code should continue to keep the core library independent from GUI-specific behavior.
