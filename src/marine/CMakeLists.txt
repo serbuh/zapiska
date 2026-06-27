@@ -1,6 +1,8 @@
 add_library(marine-core STATIC
     core/GrOsmoSdrSource.cpp
     core/GrOsmoSdrSource.h
+    core/IqPowerSink.cpp
+    core/IqPowerSink.h
     core/MarineCore.cpp
     core/MarineCore.h
     core/SdrSource.cpp

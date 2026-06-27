@@ -89,7 +89,19 @@ int main(int argc, char *argv[])
     QThread::msleep(static_cast<unsigned long>(durationMs));
 
     source.stop();
+    const marine::SdrStreamStats finalStats = source.stats();
     source.close();
+
+    qInfo() << "samples read:" << finalStats.samplesRead
+            << "wideband power dBFS:" << finalStats.widebandPowerDbfs;
+    if (finalStats.samplesRead == 0) {
+        qCritical() << "smoke failed: no samples were read";
+        return 5;
+    }
+    if (!finalStats.hasWidebandPower) {
+        qCritical() << "smoke failed: no wideband power update was produced";
+        return 6;
+    }
 
     qInfo() << "sdr smoke completed";
     return 0;

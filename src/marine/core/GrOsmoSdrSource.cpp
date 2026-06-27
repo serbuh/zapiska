@@ -1,7 +1,7 @@
 #include "GrOsmoSdrSource.h"
 
-#include <gnuradio/blocks/null_sink.h>
-#include <gnuradio/gr_complex.h>
+#include "IqPowerSink.h"
+
 #include <gnuradio/top_block.h>
 #include <osmosdr/device.h>
 #include <osmosdr/source.h>
@@ -16,6 +16,7 @@ namespace marine {
 namespace {
 
 constexpr const char *DefaultDeviceArgs = "hackrf=0";
+constexpr int PowerReportsPerSecond = 20;
 
 QString valueOrEmpty(const osmosdr::device_t &device, const std::string &key)
 {
@@ -56,13 +57,18 @@ QString errorText(const std::exception &error)
     return QString::fromUtf8(error.what());
 }
 
+quint64 powerReportIntervalSamples(int sampleRateHz)
+{
+    return static_cast<quint64>(std::max(sampleRateHz / PowerReportsPerSecond, 1));
+}
+
 } // namespace
 
 struct GrOsMoBlocks
 {
     gr::top_block_sptr topBlock;
     osmosdr::source::sptr source;
-    gr::blocks::null_sink::sptr nullSink;
+    IqPowerSink::sptr powerSink;
 };
 
 struct GrOsmoSdrSource::Impl
@@ -115,6 +121,19 @@ struct GrOsmoSdrSource::Impl
         {
             std::lock_guard<std::mutex> lock(mutex);
             activeStats.running = running;
+            statsSnapshot = activeStats;
+        }
+        emit owner->statsUpdated(statsSnapshot);
+    }
+
+    void updatePower(const IqPowerUpdate &update)
+    {
+        SdrStreamStats statsSnapshot;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            activeStats.samplesRead = update.samplesRead;
+            activeStats.hasWidebandPower = true;
+            activeStats.widebandPowerDbfs = update.powerDbfs;
             statsSnapshot = activeStats;
         }
         emit owner->statsUpdated(statsSnapshot);
@@ -216,7 +235,6 @@ bool GrOsmoSdrSource::open(const SdrSourceConfig &config, QString *errorMessage)
         GrOsMoBlocks blocks;
         blocks.topBlock = gr::make_top_block("zapiska-gr-osmosdr-source");
         blocks.source = osmosdr::source::make(deviceArgs.toStdString());
-        blocks.nullSink = gr::blocks::null_sink::make(sizeof(gr_complex));
 
         blocks.source->set_sample_rate(config.sampleRateHz);
         blocks.source->set_center_freq(static_cast<double>(config.centerFrequencyHz));
@@ -224,14 +242,20 @@ bool GrOsmoSdrSource::open(const SdrSourceConfig &config, QString *errorMessage)
             blocks.source->set_gain(config.gainDb);
         }
 
-        blocks.topBlock->connect(blocks.source, 0, blocks.nullSink, 0);
+        const int actualSampleRateHz = static_cast<int>(blocks.source->get_sample_rate());
+        blocks.powerSink = IqPowerSink::make(
+            powerReportIntervalSamples(actualSampleRateHz),
+            [sourceImpl = impl.get()](const IqPowerUpdate &update) {
+                sourceImpl->updatePower(update);
+            });
+        blocks.topBlock->connect(blocks.source, 0, blocks.powerSink, 0);
 
         {
             std::lock_guard<std::mutex> lock(impl->mutex);
             impl->blocks = blocks;
             impl->activeConfig = config;
             impl->activeConfig.deviceArgs = deviceArgs;
-            impl->activeConfig.sampleRateHz = static_cast<int>(blocks.source->get_sample_rate());
+            impl->activeConfig.sampleRateHz = actualSampleRateHz;
             impl->activeConfig.centerFrequencyHz = static_cast<qint64>(blocks.source->get_center_freq());
             impl->activeStats = {};
         }
@@ -316,4 +340,3 @@ SdrStreamStats GrOsmoSdrSource::stats() const
 }
 
 } // namespace marine
-

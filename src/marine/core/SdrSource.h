@@ -38,6 +38,8 @@ struct SdrStreamStats
     bool running = false;
     quint64 samplesRead = 0;
     quint64 droppedSamples = 0;
+    bool hasWidebandPower = false;
+    double widebandPowerDbfs = -200.0;
     QString lastError;
 };
 
@@ -84,4 +86,3 @@ Q_DECLARE_METATYPE(marine::SdrDeviceInfo)
 Q_DECLARE_METATYPE(marine::SdrSourceConfig)
 Q_DECLARE_METATYPE(marine::SdrStreamStats)
 Q_DECLARE_METATYPE(marine::IqBlock)
-
