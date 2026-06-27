@@ -1,0 +1,1462 @@
+{
+  "schema": "zapiska.marine_channels.v1",
+  "generated_at": "2026-06-27T16:25:22+00:00",
+  "channels": [
+    {
+      "id": "l1",
+      "name": "L1",
+      "frequency_hz": 155500000,
+      "frequency_mhz": 155.5,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "l2",
+      "name": "L2",
+      "frequency_hz": 155525000,
+      "frequency_mhz": 155.525,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "f1",
+      "name": "F1",
+      "frequency_hz": 155625000,
+      "frequency_mhz": 155.625,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "l3",
+      "name": "L3",
+      "frequency_hz": 155650000,
+      "frequency_mhz": 155.65,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "f2",
+      "name": "F2",
+      "frequency_hz": 155775000,
+      "frequency_mhz": 155.775,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "f3",
+      "name": "F3",
+      "frequency_hz": 155825000,
+      "frequency_mhz": 155.825,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "0a",
+      "name": "0a",
+      "frequency_hz": 156000000,
+      "frequency_mhz": 156.0,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "60a",
+      "name": "60a",
+      "frequency_hz": 156025000,
+      "frequency_mhz": 156.025,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "1a",
+      "name": "1a",
+      "frequency_hz": 156050000,
+      "frequency_mhz": 156.05,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "61a",
+      "name": "61a",
+      "frequency_hz": 156075000,
+      "frequency_mhz": 156.075,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "2a",
+      "name": "2a",
+      "frequency_hz": 156100000,
+      "frequency_mhz": 156.1,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "62a",
+      "name": "62a",
+      "frequency_hz": 156125000,
+      "frequency_mhz": 156.125,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "3a",
+      "name": "3a",
+      "frequency_hz": 156150000,
+      "frequency_mhz": 156.15,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "63a",
+      "name": "63a",
+      "frequency_hz": 156175000,
+      "frequency_mhz": 156.175,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "4a",
+      "name": "4a",
+      "frequency_hz": 156200000,
+      "frequency_mhz": 156.2,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "64a",
+      "name": "64a",
+      "frequency_hz": 156225000,
+      "frequency_mhz": 156.225,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "5a",
+      "name": "5a",
+      "frequency_hz": 156250000,
+      "frequency_mhz": 156.25,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "65a",
+      "name": "65a",
+      "frequency_hz": 156275000,
+      "frequency_mhz": 156.275,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "6",
+      "name": "6",
+      "frequency_hz": 156300000,
+      "frequency_mhz": 156.3,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "66a",
+      "name": "66a",
+      "frequency_hz": 156325000,
+      "frequency_mhz": 156.325,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "7a",
+      "name": "7a",
+      "frequency_hz": 156350000,
+      "frequency_mhz": 156.35,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "67",
+      "name": "67",
+      "frequency_hz": 156375000,
+      "frequency_mhz": 156.375,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "8",
+      "name": "8",
+      "frequency_hz": 156400000,
+      "frequency_mhz": 156.4,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "68",
+      "name": "68",
+      "frequency_hz": 156425000,
+      "frequency_mhz": 156.425,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "9",
+      "name": "9",
+      "frequency_hz": 156450000,
+      "frequency_mhz": 156.45,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "69",
+      "name": "69",
+      "frequency_hz": 156475000,
+      "frequency_mhz": 156.475,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "10",
+      "name": "10",
+      "frequency_hz": 156500000,
+      "frequency_mhz": 156.5,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "dsc",
+      "name": "DSC",
+      "frequency_hz": 156525000,
+      "frequency_mhz": 156.525,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "11",
+      "name": "11",
+      "frequency_hz": 156550000,
+      "frequency_mhz": 156.55,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "71",
+      "name": "71",
+      "frequency_hz": 156575000,
+      "frequency_mhz": 156.575,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "12",
+      "name": "12",
+      "frequency_hz": 156600000,
+      "frequency_mhz": 156.6,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "72",
+      "name": "72",
+      "frequency_hz": 156625000,
+      "frequency_mhz": 156.625,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "13",
+      "name": "13",
+      "frequency_hz": 156650000,
+      "frequency_mhz": 156.65,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "73",
+      "name": "73",
+      "frequency_hz": 156675000,
+      "frequency_mhz": 156.675,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "14",
+      "name": "14",
+      "frequency_hz": 156700000,
+      "frequency_mhz": 156.7,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "74",
+      "name": "74",
+      "frequency_hz": 156725000,
+      "frequency_mhz": 156.725,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "15",
+      "name": "15",
+      "frequency_hz": 156750000,
+      "frequency_mhz": 156.75,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "75",
+      "name": "75",
+      "frequency_hz": 156775000,
+      "frequency_mhz": 156.775,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "16",
+      "name": "16",
+      "frequency_hz": 156800000,
+      "frequency_mhz": 156.8,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": true,
+      "record_by_default": true
+    },
+    {
+      "id": "76",
+      "name": "76",
+      "frequency_hz": 156825000,
+      "frequency_mhz": 156.825,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "17",
+      "name": "17",
+      "frequency_hz": 156850000,
+      "frequency_mhz": 156.85,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "77",
+      "name": "77",
+      "frequency_hz": 156875000,
+      "frequency_mhz": 156.875,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "18a",
+      "name": "18a",
+      "frequency_hz": 156900000,
+      "frequency_mhz": 156.9,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "78a",
+      "name": "78a",
+      "frequency_hz": 156925000,
+      "frequency_mhz": 156.925,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "19a",
+      "name": "19a",
+      "frequency_hz": 156950000,
+      "frequency_mhz": 156.95,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "79a",
+      "name": "79a",
+      "frequency_hz": 156975000,
+      "frequency_mhz": 156.975,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "20a",
+      "name": "20a",
+      "frequency_hz": 157000000,
+      "frequency_mhz": 157.0,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "80a",
+      "name": "80a",
+      "frequency_hz": 157025000,
+      "frequency_mhz": 157.025,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "21a",
+      "name": "21a",
+      "frequency_hz": 157050000,
+      "frequency_mhz": 157.05,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "81a",
+      "name": "81a",
+      "frequency_hz": 157075000,
+      "frequency_mhz": 157.075,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "22a",
+      "name": "22a",
+      "frequency_hz": 157100000,
+      "frequency_mhz": 157.1,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "82a",
+      "name": "82a",
+      "frequency_hz": 157125000,
+      "frequency_mhz": 157.125,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "23a",
+      "name": "23a",
+      "frequency_hz": 157150000,
+      "frequency_mhz": 157.15,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "83a",
+      "name": "83a",
+      "frequency_hz": 157175000,
+      "frequency_mhz": 157.175,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "24a",
+      "name": "24a",
+      "frequency_hz": 157200000,
+      "frequency_mhz": 157.2,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "84a",
+      "name": "84a",
+      "frequency_hz": 157225000,
+      "frequency_mhz": 157.225,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "25a",
+      "name": "25a",
+      "frequency_hz": 157250000,
+      "frequency_mhz": 157.25,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "85a",
+      "name": "85a",
+      "frequency_hz": 157275000,
+      "frequency_mhz": 157.275,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "26a",
+      "name": "26a",
+      "frequency_hz": 157300000,
+      "frequency_mhz": 157.3,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "86a",
+      "name": "86a",
+      "frequency_hz": 157325000,
+      "frequency_mhz": 157.325,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "27a",
+      "name": "27a",
+      "frequency_hz": 157350000,
+      "frequency_mhz": 157.35,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "87",
+      "name": "87",
+      "frequency_hz": 157375000,
+      "frequency_mhz": 157.375,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "28a",
+      "name": "28a",
+      "frequency_hz": 157400000,
+      "frequency_mhz": 157.4,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "88",
+      "name": "88",
+      "frequency_hz": 157425000,
+      "frequency_mhz": 157.425,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "31a",
+      "name": "31a",
+      "frequency_hz": 157550000,
+      "frequency_mhz": 157.55,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "m1",
+      "name": "M1",
+      "frequency_hz": 157850000,
+      "frequency_mhz": 157.85,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "0b",
+      "name": "0b",
+      "frequency_hz": 160600000,
+      "frequency_mhz": 160.6,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "60b",
+      "name": "60b",
+      "frequency_hz": 160625000,
+      "frequency_mhz": 160.625,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "1b",
+      "name": "1b",
+      "frequency_hz": 160650000,
+      "frequency_mhz": 160.65,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "61b",
+      "name": "61b",
+      "frequency_hz": 160675000,
+      "frequency_mhz": 160.675,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "2b",
+      "name": "2b",
+      "frequency_hz": 160700000,
+      "frequency_mhz": 160.7,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "62b",
+      "name": "62b",
+      "frequency_hz": 160725000,
+      "frequency_mhz": 160.725,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "3b",
+      "name": "3b",
+      "frequency_hz": 160750000,
+      "frequency_mhz": 160.75,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "63b",
+      "name": "63b",
+      "frequency_hz": 160775000,
+      "frequency_mhz": 160.775,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "4b",
+      "name": "4b",
+      "frequency_hz": 160800000,
+      "frequency_mhz": 160.8,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "64b",
+      "name": "64b",
+      "frequency_hz": 160825000,
+      "frequency_mhz": 160.825,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "5b",
+      "name": "5b",
+      "frequency_hz": 160850000,
+      "frequency_mhz": 160.85,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "65b",
+      "name": "65b",
+      "frequency_hz": 160875000,
+      "frequency_mhz": 160.875,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "66b",
+      "name": "66b",
+      "frequency_hz": 160925000,
+      "frequency_mhz": 160.925,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "7b",
+      "name": "7b",
+      "frequency_hz": 160950000,
+      "frequency_mhz": 160.95,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "m2",
+      "name": "M2",
+      "frequency_hz": 161425000,
+      "frequency_mhz": 161.425,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "18b",
+      "name": "18b",
+      "frequency_hz": 161500000,
+      "frequency_mhz": 161.5,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "78b",
+      "name": "78b",
+      "frequency_hz": 161525000,
+      "frequency_mhz": 161.525,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "19b",
+      "name": "19b",
+      "frequency_hz": 161550000,
+      "frequency_mhz": 161.55,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "79b",
+      "name": "79b",
+      "frequency_hz": 161575000,
+      "frequency_mhz": 161.575,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "20b",
+      "name": "20b",
+      "frequency_hz": 161600000,
+      "frequency_mhz": 161.6,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "80b",
+      "name": "80b",
+      "frequency_hz": 161625000,
+      "frequency_mhz": 161.625,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "21b",
+      "name": "21b",
+      "frequency_hz": 161650000,
+      "frequency_mhz": 161.65,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "81b",
+      "name": "81b",
+      "frequency_hz": 161675000,
+      "frequency_mhz": 161.675,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "22b",
+      "name": "22b",
+      "frequency_hz": 161700000,
+      "frequency_mhz": 161.7,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "82b",
+      "name": "82b",
+      "frequency_hz": 161725000,
+      "frequency_mhz": 161.725,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "23b",
+      "name": "23b",
+      "frequency_hz": 161750000,
+      "frequency_mhz": 161.75,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "83b",
+      "name": "83b",
+      "frequency_hz": 161775000,
+      "frequency_mhz": 161.775,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "24b",
+      "name": "24b",
+      "frequency_hz": 161800000,
+      "frequency_mhz": 161.8,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "84b",
+      "name": "84b",
+      "frequency_hz": 161825000,
+      "frequency_mhz": 161.825,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "25b",
+      "name": "25b",
+      "frequency_hz": 161850000,
+      "frequency_mhz": 161.85,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "85b",
+      "name": "85b",
+      "frequency_hz": 161875000,
+      "frequency_mhz": 161.875,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "26b",
+      "name": "26b",
+      "frequency_hz": 161900000,
+      "frequency_mhz": 161.9,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "86b",
+      "name": "86b",
+      "frequency_hz": 161925000,
+      "frequency_mhz": 161.925,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "27b",
+      "name": "27b",
+      "frequency_hz": 161950000,
+      "frequency_mhz": 161.95,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "ais_87b",
+      "name": "AIS_87B",
+      "frequency_hz": 161975000,
+      "frequency_mhz": 161.975,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 12000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "28b",
+      "name": "28b",
+      "frequency_hz": 162000000,
+      "frequency_mhz": 162.0,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "ais_88b",
+      "name": "AIS_88B",
+      "frequency_hz": 162025000,
+      "frequency_mhz": 162.025,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 12000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    },
+    {
+      "id": "31b",
+      "name": "31b",
+      "frequency_hz": 162150000,
+      "frequency_mhz": 162.15,
+      "mode": "nfm",
+      "modulation": "Narrow FM",
+      "bandwidth_hz": 10000,
+      "tags": [
+        "Marine"
+      ],
+      "enabled_by_default": false,
+      "record_by_default": false
+    }
+  ]
+}
