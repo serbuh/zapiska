@@ -23,6 +23,8 @@ namespace {
 
 constexpr double MinimumMeterPowerDbfs = -100.0;
 constexpr double MaximumMeterPowerDbfs = -20.0;
+constexpr double MinimumAudioLevelDbfs = -80.0;
+constexpr double MaximumAudioLevelDbfs = 0.0;
 
 QString sdrStateText(marine::SdrSourceState state)
 {
@@ -77,11 +79,19 @@ QString formatChannelPower(const marine::SdrChannelStats &stats)
     return QLocale::c().toString(stats.powerDbfs, 'f', 1) + QStringLiteral(" dBFS");
 }
 
-int channelPowerMeterValue(double powerDbfs)
+QString formatAudioLevel(const marine::SdrChannelStats &stats)
 {
-    const double clampedPower = std::clamp(powerDbfs, MinimumMeterPowerDbfs, MaximumMeterPowerDbfs);
-    const double normalized = (clampedPower - MinimumMeterPowerDbfs)
-        / (MaximumMeterPowerDbfs - MinimumMeterPowerDbfs);
+    if (!stats.hasAudioLevel) {
+        return QStringLiteral("waiting");
+    }
+
+    return QLocale::c().toString(stats.audioLevelDbfs, 'f', 1) + QStringLiteral(" dBFS");
+}
+
+int meterValue(double value, double minimum, double maximum)
+{
+    const double clampedValue = std::clamp(value, minimum, maximum);
+    const double normalized = (clampedValue - minimum) / (maximum - minimum);
     return static_cast<int>(std::lround(normalized * 100.0));
 }
 
@@ -165,13 +175,14 @@ void MainWindow::buildUi()
     channelControlsLayout->addWidget(removeChannelButton);
 
     channelTable = new QTableWidget(root);
-    channelTable->setColumnCount(7);
+    channelTable->setColumnCount(8);
     channelTable->setHorizontalHeaderLabels({
         tr("Channel"),
         tr("Frequency"),
         tr("Mode"),
         tr("Bandwidth"),
         tr("Signal"),
+        tr("Audio"),
         tr("Squelch"),
         tr("Recording"),
     });
@@ -261,8 +272,15 @@ void MainWindow::refreshChannelTable()
         signalMeter->setTextVisible(true);
         channelTable->setCellWidget(row, 4, signalMeter);
 
-        channelTable->setItem(row, 5, new QTableWidgetItem(tr("closed")));
-        channelTable->setItem(row, 6, new QTableWidgetItem(channel.recordByDefault ? tr("armed") : tr("off")));
+        auto *audioMeter = new QProgressBar(channelTable);
+        audioMeter->setRange(0, 100);
+        audioMeter->setValue(0);
+        audioMeter->setFormat(tr("waiting"));
+        audioMeter->setTextVisible(true);
+        channelTable->setCellWidget(row, 5, audioMeter);
+
+        channelTable->setItem(row, 6, new QTableWidgetItem(tr("closed")));
+        channelTable->setItem(row, 7, new QTableWidgetItem(channel.recordByDefault ? tr("armed") : tr("off")));
     }
 
     channelTable->resizeColumnsToContents();
@@ -337,7 +355,7 @@ void MainWindow::handleSdrStatsUpdated(const marine::SdrStreamStats &stats)
 {
     sampleCountLabel->setText(tr("Samples: %1").arg(formatSampleCount(stats.samplesRead)));
     widebandPowerLabel->setText(tr("Power: %1").arg(formatWidebandPower(stats)));
-    updateChannelSignalMeters(stats.channelStats);
+    updateChannelMeters(stats.channelStats);
 
     if (!stats.lastError.isEmpty()) {
         handleSdrError(stats.lastError);
@@ -394,7 +412,7 @@ marine::SdrSourceConfig MainWindow::buildSdrConfig() const
     return config;
 }
 
-void MainWindow::updateChannelSignalMeters(const QVector<marine::SdrChannelStats> &channelStats)
+void MainWindow::updateChannelMeters(const QVector<marine::SdrChannelStats> &channelStats)
 {
     for (const auto &stats : channelStats) {
         const int row = visibleChannelRow(stats.id);
@@ -407,8 +425,20 @@ void MainWindow::updateChannelSignalMeters(const QVector<marine::SdrChannelStats
             continue;
         }
 
-        signalMeter->setValue(stats.hasPower ? channelPowerMeterValue(stats.powerDbfs) : 0);
+        signalMeter->setValue(stats.hasPower
+                ? meterValue(stats.powerDbfs, MinimumMeterPowerDbfs, MaximumMeterPowerDbfs)
+                : 0);
         signalMeter->setFormat(formatChannelPower(stats));
+
+        auto *audioMeter = qobject_cast<QProgressBar *>(channelTable->cellWidget(row, 5));
+        if (!audioMeter) {
+            continue;
+        }
+
+        audioMeter->setValue(stats.hasAudioLevel
+                ? meterValue(stats.audioLevelDbfs, MinimumAudioLevelDbfs, MaximumAudioLevelDbfs)
+                : 0);
+        audioMeter->setFormat(formatAudioLevel(stats));
     }
 }
 

@@ -174,7 +174,7 @@ struct GrOsmoSdrSource::Impl
         emit owner->statsUpdated(statsSnapshot);
     }
 
-    void updateChannelPower(const ChannelPowerUpdate &update)
+    void updateChannelStats(const ChannelStatsUpdate &update)
     {
         SdrStreamStats statsSnapshot;
         {
@@ -182,7 +182,22 @@ struct GrOsmoSdrSource::Impl
             bool updated = false;
             for (auto &channelStats : activeStats.channelStats) {
                 if (channelStats.id == update.stats.id) {
-                    channelStats = update.stats;
+                    channelStats.name = update.stats.name;
+                    channelStats.frequencyHz = update.stats.frequencyHz;
+                    channelStats.offsetHz = update.stats.offsetHz;
+                    channelStats.bandwidthHz = update.stats.bandwidthHz;
+                    channelStats.sampleRateHz = update.stats.sampleRateHz;
+                    channelStats.audioSampleRateHz = update.stats.audioSampleRateHz;
+                    if (update.stats.hasPower) {
+                        channelStats.samplesRead = update.stats.samplesRead;
+                        channelStats.hasPower = true;
+                        channelStats.powerDbfs = update.stats.powerDbfs;
+                    }
+                    if (update.stats.hasAudioLevel) {
+                        channelStats.audioSamplesRead = update.stats.audioSamplesRead;
+                        channelStats.hasAudioLevel = true;
+                        channelStats.audioLevelDbfs = update.stats.audioLevelDbfs;
+                    }
                     updated = true;
                     break;
                 }
@@ -317,8 +332,8 @@ bool GrOsmoSdrSource::open(const SdrSourceConfig &config, QString *errorMessage)
 
             auto channelReceiver = ChannelReceiver::make(
                 receiverConfig,
-                [sourceImpl = impl.get()](const ChannelPowerUpdate &update) {
-                    sourceImpl->updateChannelPower(update);
+                [sourceImpl = impl.get()](const ChannelStatsUpdate &update) {
+                    sourceImpl->updateChannelStats(update);
                 });
             channelReceiver->connectInput(blocks.topBlock, blocks.source);
             initialChannelStats.append(channelReceiver->initialStats());

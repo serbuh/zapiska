@@ -1,7 +1,9 @@
 #include "ChannelReceiver.h"
 
+#include "AudioLevelSink.h"
 #include "IqPowerSink.h"
 
+#include <gnuradio/analog/quadrature_demod_cf.h>
 #include <gnuradio/filter/firdes.h>
 #include <gnuradio/filter/freq_xlating_fir_filter.h>
 
@@ -19,6 +21,8 @@ constexpr int DefaultBandwidthHz = 10000;
 constexpr int TargetChannelSampleRateHz = 50000;
 constexpr int MinimumTransitionWidthHz = 2000;
 constexpr int PowerReportsPerSecond = 20;
+constexpr double NarrowFmDeviationHz = 5000.0;
+constexpr double Pi = 3.14159265358979323846;
 
 int normalizedBandwidth(int bandwidthHz)
 {
@@ -60,6 +64,12 @@ quint64 powerReportIntervalSamples(int sampleRateHz)
     return static_cast<quint64>(std::max(sampleRateHz / PowerReportsPerSecond, 1));
 }
 
+float quadratureDemodGain(int sampleRateHz)
+{
+    return static_cast<float>(
+        static_cast<double>(sampleRateHz) / (2.0 * Pi * NarrowFmDeviationHz));
+}
+
 SdrChannelConfig normalizedChannelConfig(const SdrChannelConfig &channel)
 {
     SdrChannelConfig normalized = channel;
@@ -83,6 +93,8 @@ struct ChannelReceiver::Impl
     SdrChannelStats stats;
     gr::filter::freq_xlating_fir_filter_ccf::sptr translatingFilter;
     IqPowerSink::sptr powerSink;
+    gr::analog::quadrature_demod_cf::sptr demodulator;
+    AudioLevelSink::sptr audioLevelSink;
     Callback callback;
 
     Impl(const ChannelReceiverConfig &config, Callback callback)
@@ -106,6 +118,7 @@ struct ChannelReceiver::Impl
         stats.offsetHz = offsetHz;
         stats.bandwidthHz = channel.bandwidthHz;
         stats.sampleRateHz = outputSampleRateHz;
+        stats.audioSampleRateHz = outputSampleRateHz;
 
         translatingFilter = gr::filter::freq_xlating_fir_filter_ccf::make(
             decimation,
@@ -120,7 +133,20 @@ struct ChannelReceiver::Impl
                 updateStats.hasPower = true;
                 updateStats.powerDbfs = update.powerDbfs;
                 if (this->callback) {
-                    this->callback(ChannelPowerUpdate { updateStats });
+                    this->callback(ChannelStatsUpdate { updateStats });
+                }
+            });
+        demodulator = gr::analog::quadrature_demod_cf::make(
+            quadratureDemodGain(outputSampleRateHz));
+        audioLevelSink = AudioLevelSink::make(
+            powerReportIntervalSamples(outputSampleRateHz),
+            [this](const AudioLevelUpdate &update) {
+                SdrChannelStats updateStats = stats;
+                updateStats.audioSamplesRead = update.samplesRead;
+                updateStats.hasAudioLevel = true;
+                updateStats.audioLevelDbfs = update.levelDbfs;
+                if (this->callback) {
+                    this->callback(ChannelStatsUpdate { updateStats });
                 }
             });
     }
@@ -140,6 +166,8 @@ void ChannelReceiver::connectInput(const gr::top_block_sptr &topBlock, const gr:
 {
     topBlock->connect(source, 0, impl->translatingFilter, 0);
     topBlock->connect(impl->translatingFilter, 0, impl->powerSink, 0);
+    topBlock->connect(impl->translatingFilter, 0, impl->demodulator, 0);
+    topBlock->connect(impl->demodulator, 0, impl->audioLevelSink, 0);
 }
 
 SdrChannelStats ChannelReceiver::initialStats() const

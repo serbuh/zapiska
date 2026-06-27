@@ -97,7 +97,9 @@ int main(int argc, char *argv[])
     for (const auto &channelStats : finalStats.channelStats) {
         qInfo() << "channel:" << channelStats.id
                 << "samples read:" << channelStats.samplesRead
-                << "power dBFS:" << channelStats.powerDbfs;
+                << "power dBFS:" << channelStats.powerDbfs
+                << "audio samples read:" << channelStats.audioSamplesRead
+                << "audio level dBFS:" << channelStats.audioLevelDbfs;
     }
     if (finalStats.samplesRead == 0) {
         qCritical() << "smoke failed: no samples were read";
@@ -114,6 +116,14 @@ int main(int argc, char *argv[])
     if (!finalStats.channelStats.first().hasPower) {
         qCritical() << "smoke failed: no channel power update was produced";
         return 8;
+    }
+    if (finalStats.channelStats.first().audioSamplesRead == 0) {
+        qCritical() << "smoke failed: no demodulated audio samples were read";
+        return 9;
+    }
+    if (!finalStats.channelStats.first().hasAudioLevel) {
+        qCritical() << "smoke failed: no audio level update was produced";
+        return 10;
     }
 
     qInfo() << "sdr smoke completed";

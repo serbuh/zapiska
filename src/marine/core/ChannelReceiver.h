@@ -17,7 +17,7 @@ struct ChannelReceiverConfig
     int inputSampleRateHz = 2000000;
 };
 
-struct ChannelPowerUpdate
+struct ChannelStatsUpdate
 {
     SdrChannelStats stats;
 };
@@ -26,7 +26,7 @@ class ChannelReceiver final
 {
 public:
     using sptr = std::shared_ptr<ChannelReceiver>;
-    using Callback = std::function<void(const ChannelPowerUpdate &update)>;
+    using Callback = std::function<void(const ChannelStatsUpdate &update)>;
 
     static sptr make(const ChannelReceiverConfig &config, Callback callback);
 

@@ -36,7 +36,7 @@ private:
     void refreshSdrControls();
     void updateSdrConfigLabels(const marine::SdrSourceConfig &config);
     marine::SdrSourceConfig buildSdrConfig() const;
-    void updateChannelSignalMeters(const QVector<marine::SdrChannelStats> &channelStats);
+    void updateChannelMeters(const QVector<marine::SdrChannelStats> &channelStats);
     int visibleChannelRow(const QString &id) const;
 
     void addSelectedChannel();

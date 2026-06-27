@@ -54,6 +54,10 @@ struct SdrChannelStats
     quint64 samplesRead = 0;
     bool hasPower = false;
     double powerDbfs = -200.0;
+    int audioSampleRateHz = 0;
+    quint64 audioSamplesRead = 0;
+    bool hasAudioLevel = false;
+    double audioLevelDbfs = -200.0;
 };
 
 struct SdrStreamStats
