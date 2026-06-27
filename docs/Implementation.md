@@ -45,10 +45,18 @@ This document tracks the current implementation state for Zapiska's marine recor
   - computes reduced-rate wideband power in dBFS,
   - emits throttled stats updates through `SdrStreamStats`.
 - Extended `marine-sdr-smoke` to fail if the flowgraph does not produce samples or a power update.
+- Wired the recorder GUI to `GrOsmoSdrSource` with Connect, Start, Stop, and Disconnect controls.
+- Added recorder GUI display for:
+  - SDR backend state,
+  - actual center frequency,
+  - actual sample rate,
+  - samples read,
+  - wideband power in dBFS,
+  - SDR open/start errors.
 
 ## Current Step
 
-Step 6 is complete: `marine-core` now measures wideband IQ power from the gr-osmosdr stream without exposing high-rate IQ data to the GUI.
+Step 7 is complete: the recorder GUI can open, start, stop, and disconnect the gr-osmosdr backend while displaying live wideband stream stats.
 
 ## Verification
 
@@ -56,36 +64,36 @@ Step 6 is complete: `marine-core` now measures wideband IQ power from the gr-osm
 - Built the `marine-recorder-gui` target successfully.
 - Built and ran `marine-sdr-smoke` against a temporary gr-osmosdr file source.
 - Verified that `marine-sdr-smoke` reports non-zero `samplesRead` and a wideband power value.
+- Rebuilt the `marine-recorder-gui` target after wiring the SDR controls.
 
 ## Left To Do
 
-1. Display live HackRF power in the recorder GUI.
-2. Add `ChannelReceiver` for per-channel frequency offset and channel power.
-3. Add NFM demodulation and audio level measurement.
-4. Add WAV recording for Channel 16.
-5. Add JSON sidecar metadata for recordings.
-6. Add a configurable second channel display.
-7. Add per-channel squelch state and threshold controls.
-8. Add per-channel recording controls.
-9. Add a separate playback GUI for recorded WAV files.
-10. Add squelch-gated segment recording and timeline metadata.
+1. Add `ChannelReceiver` for per-channel frequency offset and channel power.
+2. Add NFM demodulation and audio level measurement.
+3. Add WAV recording for Channel 16.
+4. Add JSON sidecar metadata for recordings.
+5. Add a configurable second channel display.
+6. Add per-channel squelch state and threshold controls.
+7. Add per-channel recording controls.
+8. Add a separate playback GUI for recorded WAV files.
+9. Add squelch-gated segment recording and timeline metadata.
 
 ## Immediate Next Step
 
-Wire the recorder GUI Connect/Start buttons to `GrOsmoSdrSource` and display live wideband power.
+Add `ChannelReceiver` for per-channel frequency offset and channel power.
 
 Acceptance criteria:
 
-- Add a persistent `GrOsmoSdrSource` member to the recorder window.
-- Enable Connect/Start/Stop for the SDR backend.
-- Show backend state, actual sample rate, sample count, and wideband power.
-- Surface open/start errors in the GUI.
-- Keep recording controls disabled until audio recording exists.
+- Add a core receiver block that translates a configured channel offset from the wideband IQ stream.
+- Low-pass/filter the channel bandwidth before power measurement.
+- Emit reduced-rate per-channel power stats suitable for squelch decisions.
+- Start with Channel 16 only, using the existing visible-channel defaults.
+- Keep demodulation and audio output out of this step.
 
 ## Notes
 
 - Primary recorder backend decision: use GNU Radio with gr-osmosdr, matching the working Gqrx stack.
-- The SDR Connect/Start/Record controls are intentionally disabled until the SDR backend exists.
+- The Record control remains disabled until audio recording exists.
 - Channel 16 remains the only default-enabled/default-recording channel.
 - Channel selection is runtime-only for now; selected channels are not persisted.
 - The code should continue to keep the core library independent from GUI-specific behavior.

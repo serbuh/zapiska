@@ -7,17 +7,73 @@
 #include <QHeaderView>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLocale>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QStatusBar>
 #include <QTableWidget>
 #include <QTableWidgetItem>
 #include <QVBoxLayout>
 #include <QWidget>
 
+namespace {
+
+QString sdrStateText(marine::SdrSourceState state)
+{
+    switch (state) {
+    case marine::SdrSourceState::Closed:
+        return QStringLiteral("closed");
+    case marine::SdrSourceState::Open:
+        return QStringLiteral("open");
+    case marine::SdrSourceState::Streaming:
+        return QStringLiteral("streaming");
+    case marine::SdrSourceState::Error:
+        return QStringLiteral("error");
+    }
+
+    return QStringLiteral("unknown");
+}
+
+QString formatSampleRate(int sampleRateHz)
+{
+    if (sampleRateHz >= 1000000) {
+        return QLocale::c().toString(static_cast<double>(sampleRateHz) / 1000000.0, 'f', 3)
+            + QStringLiteral(" MS/s");
+    }
+    if (sampleRateHz >= 1000) {
+        return QLocale::c().toString(static_cast<double>(sampleRateHz) / 1000.0, 'f', 1)
+            + QStringLiteral(" kS/s");
+    }
+
+    return QLocale::c().toString(sampleRateHz) + QStringLiteral(" S/s");
+}
+
+QString formatSampleCount(quint64 samplesRead)
+{
+    return QLocale::c().toString(samplesRead);
+}
+
+QString formatWidebandPower(const marine::SdrStreamStats &stats)
+{
+    if (!stats.hasWidebandPower) {
+        return QStringLiteral("waiting");
+    }
+
+    return QLocale::c().toString(stats.widebandPowerDbfs, 'f', 1) + QStringLiteral(" dBFS");
+}
+
+} // namespace
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
+    , sdrSource(this)
 {
     buildUi();
+    connect(&sdrSource, &marine::SdrSource::stateChanged, this, &MainWindow::handleSdrStateChanged);
+    connect(&sdrSource, &marine::SdrSource::statsUpdated, this, &MainWindow::handleSdrStatsUpdated);
+    connect(&sdrSource, &marine::SdrSource::errorOccurred, this, &MainWindow::handleSdrError);
+    handleSdrStateChanged(sdrSource.state());
+    handleSdrStatsUpdated(sdrSource.stats());
     loadChannels();
 }
 
@@ -30,33 +86,48 @@ void MainWindow::buildUi()
     auto *toolbarLayout = new QHBoxLayout(toolbar);
     toolbarLayout->setContentsMargins(0, 0, 0, 0);
 
+    auto *sdrMetrics = new QWidget(root);
+    auto *sdrMetricsLayout = new QHBoxLayout(sdrMetrics);
+    sdrMetricsLayout->setContentsMargins(0, 0, 0, 0);
+
     auto *channelControls = new QWidget(root);
     auto *channelControlsLayout = new QHBoxLayout(channelControls);
     channelControlsLayout->setContentsMargins(0, 0, 0, 0);
 
-    deviceStateLabel = new QLabel(tr("Device: disconnected"), toolbar);
-    centerFrequencyLabel = new QLabel(tr("Center: 156.800 MHz"), toolbar);
-    sampleRateLabel = new QLabel(tr("Sample rate: 2.000 MS/s"), toolbar);
+    deviceStateLabel = new QLabel(tr("Backend: closed"), toolbar);
     channelCatalogLabel = new QLabel(tr("Channels: loading"), toolbar);
+    centerFrequencyLabel = new QLabel(tr("Center: 156.800 MHz"), sdrMetrics);
+    sampleRateLabel = new QLabel(tr("Sample rate: 2.000 MS/s"), sdrMetrics);
+    sampleCountLabel = new QLabel(tr("Samples: 0"), sdrMetrics);
+    widebandPowerLabel = new QLabel(tr("Power: waiting"), sdrMetrics);
+    sdrStatusLabel = new QLabel(tr("SDR: ready"), root);
+    sdrStatusLabel->setWordWrap(true);
 
-    auto *connectButton = new QPushButton(tr("Connect"), toolbar);
-    connectButton->setEnabled(false);
-    auto *startButton = new QPushButton(tr("Start"), toolbar);
+    connectButton = new QPushButton(tr("Connect"), toolbar);
+    startButton = new QPushButton(tr("Start"), toolbar);
     startButton->setEnabled(false);
-    auto *recordButton = new QPushButton(tr("Record"), toolbar);
+    stopButton = new QPushButton(tr("Stop"), toolbar);
+    stopButton->setEnabled(false);
+    recordButton = new QPushButton(tr("Record"), toolbar);
     recordButton->setEnabled(false);
 
     toolbarLayout->addWidget(deviceStateLabel);
-    toolbarLayout->addSpacing(16);
-    toolbarLayout->addWidget(centerFrequencyLabel);
-    toolbarLayout->addSpacing(16);
-    toolbarLayout->addWidget(sampleRateLabel);
     toolbarLayout->addSpacing(16);
     toolbarLayout->addWidget(channelCatalogLabel);
     toolbarLayout->addStretch();
     toolbarLayout->addWidget(connectButton);
     toolbarLayout->addWidget(startButton);
+    toolbarLayout->addWidget(stopButton);
     toolbarLayout->addWidget(recordButton);
+
+    sdrMetricsLayout->addWidget(centerFrequencyLabel);
+    sdrMetricsLayout->addSpacing(16);
+    sdrMetricsLayout->addWidget(sampleRateLabel);
+    sdrMetricsLayout->addSpacing(16);
+    sdrMetricsLayout->addWidget(sampleCountLabel);
+    sdrMetricsLayout->addSpacing(16);
+    sdrMetricsLayout->addWidget(widebandPowerLabel);
+    sdrMetricsLayout->addStretch();
 
     channelSelector = new QComboBox(channelControls);
     channelSelector->setMinimumWidth(260);
@@ -87,11 +158,16 @@ void MainWindow::buildUi()
     channelTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     channelTable->setSelectionMode(QAbstractItemView::SingleSelection);
 
+    connect(connectButton, &QPushButton::clicked, this, &MainWindow::toggleSdrConnection);
+    connect(startButton, &QPushButton::clicked, this, &MainWindow::startSdr);
+    connect(stopButton, &QPushButton::clicked, this, &MainWindow::stopSdr);
     connect(addChannelButton, &QPushButton::clicked, this, &MainWindow::addSelectedChannel);
     connect(removeChannelButton, &QPushButton::clicked, this, &MainWindow::removeSelectedChannel);
     connect(channelTable, &QTableWidget::itemSelectionChanged, this, &MainWindow::updateRemoveButtonState);
 
     layout->addWidget(toolbar);
+    layout->addWidget(sdrMetrics);
+    layout->addWidget(sdrStatusLabel);
     layout->addWidget(channelControls);
     layout->addWidget(channelTable);
 
@@ -174,6 +250,105 @@ void MainWindow::updateChannelCatalogLabel()
     channelCatalogLabel->setText(tr("Channels: %1 loaded, %2 visible")
         .arg(channelCatalog.size())
         .arg(visibleChannels.size()));
+}
+
+void MainWindow::toggleSdrConnection()
+{
+    const auto state = sdrSource.state();
+    if (state == marine::SdrSourceState::Open || state == marine::SdrSourceState::Streaming) {
+        sdrSource.close();
+        sdrStatusLabel->setText(tr("SDR: disconnected"));
+        statusBar()->showMessage(tr("SDR disconnected"), 3000);
+        refreshSdrControls();
+        return;
+    }
+
+    sdrStatusLabel->setText(tr("SDR: connecting"));
+    QString errorMessage;
+    marine::SdrSourceConfig config;
+    if (!sdrSource.open(config, &errorMessage)) {
+        handleSdrError(errorMessage);
+        refreshSdrControls();
+        return;
+    }
+
+    updateSdrConfigLabels(sdrSource.config());
+    sdrStatusLabel->setText(tr("SDR: connected"));
+    statusBar()->showMessage(tr("Connected to %1").arg(sdrSource.backendName()), 3000);
+    refreshSdrControls();
+}
+
+void MainWindow::startSdr()
+{
+    sdrStatusLabel->setText(tr("SDR: starting"));
+    QString errorMessage;
+    if (!sdrSource.start(&errorMessage)) {
+        handleSdrError(errorMessage);
+        refreshSdrControls();
+        return;
+    }
+
+    sdrStatusLabel->setText(tr("SDR: streaming"));
+    statusBar()->showMessage(tr("SDR streaming"), 3000);
+    refreshSdrControls();
+}
+
+void MainWindow::stopSdr()
+{
+    sdrSource.stop();
+    sdrStatusLabel->setText(tr("SDR: stopped"));
+    statusBar()->showMessage(tr("SDR stopped"), 3000);
+    refreshSdrControls();
+}
+
+void MainWindow::handleSdrStateChanged(marine::SdrSourceState state)
+{
+    deviceStateLabel->setText(tr("Backend: %1 (%2)")
+        .arg(sdrSource.backendName(), sdrStateText(state)));
+    updateSdrConfigLabels(sdrSource.config());
+    refreshSdrControls();
+}
+
+void MainWindow::handleSdrStatsUpdated(const marine::SdrStreamStats &stats)
+{
+    sampleCountLabel->setText(tr("Samples: %1").arg(formatSampleCount(stats.samplesRead)));
+    widebandPowerLabel->setText(tr("Power: %1").arg(formatWidebandPower(stats)));
+
+    if (!stats.lastError.isEmpty()) {
+        handleSdrError(stats.lastError);
+    }
+}
+
+void MainWindow::handleSdrError(const QString &message)
+{
+    if (message.isEmpty()) {
+        return;
+    }
+
+    sdrStatusLabel->setText(tr("SDR error: %1").arg(message));
+    statusBar()->showMessage(message, 6000);
+}
+
+void MainWindow::refreshSdrControls()
+{
+    const auto state = sdrSource.state();
+    const bool isOpen = state == marine::SdrSourceState::Open
+        || state == marine::SdrSourceState::Streaming;
+    const bool isStreaming = state == marine::SdrSourceState::Streaming;
+
+    connectButton->setText(isOpen ? tr("Disconnect") : tr("Connect"));
+    connectButton->setEnabled(true);
+    startButton->setEnabled(state == marine::SdrSourceState::Open);
+    stopButton->setEnabled(isStreaming);
+    recordButton->setEnabled(false);
+}
+
+void MainWindow::updateSdrConfigLabels(const marine::SdrSourceConfig &config)
+{
+    centerFrequencyLabel->setText(tr("Center: %1")
+        .arg(marine::formatFrequencyMHz(config.centerFrequencyHz)));
+    sampleRateLabel->setText(tr("Sample rate: %1")
+        .arg(formatSampleRate(config.sampleRateHz)));
 }
 
 bool MainWindow::isChannelVisible(const QString &id) const

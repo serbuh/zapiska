@@ -1,5 +1,6 @@
 #pragma once
 
+#include "GrOsmoSdrSource.h"
 #include "MarineCore.h"
 
 #include <QMainWindow>
@@ -26,14 +27,32 @@ private:
     void updateChannelCatalogLabel();
     bool isChannelVisible(const QString &id) const;
 
+    void toggleSdrConnection();
+    void startSdr();
+    void stopSdr();
+    void handleSdrStateChanged(marine::SdrSourceState state);
+    void handleSdrStatsUpdated(const marine::SdrStreamStats &stats);
+    void handleSdrError(const QString &message);
+    void refreshSdrControls();
+    void updateSdrConfigLabels(const marine::SdrSourceConfig &config);
+
     void addSelectedChannel();
     void removeSelectedChannel();
     void updateRemoveButtonState();
 
+    marine::GrOsmoSdrSource sdrSource;
+
     QLabel *deviceStateLabel = nullptr;
     QLabel *centerFrequencyLabel = nullptr;
     QLabel *sampleRateLabel = nullptr;
+    QLabel *sampleCountLabel = nullptr;
+    QLabel *widebandPowerLabel = nullptr;
     QLabel *channelCatalogLabel = nullptr;
+    QLabel *sdrStatusLabel = nullptr;
+    QPushButton *connectButton = nullptr;
+    QPushButton *startButton = nullptr;
+    QPushButton *stopButton = nullptr;
+    QPushButton *recordButton = nullptr;
     QComboBox *channelSelector = nullptr;
     QPushButton *addChannelButton = nullptr;
     QPushButton *removeChannelButton = nullptr;
