@@ -22,6 +22,7 @@ constexpr int TargetChannelSampleRateHz = 50000;
 constexpr int MinimumTransitionWidthHz = 2000;
 constexpr int PowerReportsPerSecond = 20;
 constexpr double NarrowFmDeviationHz = 5000.0;
+constexpr double DefaultSquelchThresholdDbfs = -45.0;
 constexpr double Pi = 3.14159265358979323846;
 
 int normalizedBandwidth(int bandwidthHz)
@@ -83,6 +84,9 @@ SdrChannelConfig normalizedChannelConfig(const SdrChannelConfig &channel)
         normalized.frequencyHz = 156800000;
     }
     normalized.bandwidthHz = normalizedBandwidth(normalized.bandwidthHz);
+    if (normalized.squelchThresholdDbfs >= 0.0) {
+        normalized.squelchThresholdDbfs = DefaultSquelchThresholdDbfs;
+    }
     return normalized;
 }
 
@@ -119,6 +123,7 @@ struct ChannelReceiver::Impl
         stats.bandwidthHz = channel.bandwidthHz;
         stats.sampleRateHz = outputSampleRateHz;
         stats.audioSampleRateHz = outputSampleRateHz;
+        stats.squelchThresholdDbfs = channel.squelchThresholdDbfs;
 
         translatingFilter = gr::filter::freq_xlating_fir_filter_ccf::make(
             decimation,
@@ -145,6 +150,8 @@ struct ChannelReceiver::Impl
                 updateStats.audioSamplesRead = update.samplesRead;
                 updateStats.hasAudioLevel = true;
                 updateStats.audioLevelDbfs = update.levelDbfs;
+                updateStats.hasSquelch = true;
+                updateStats.squelchOpen = update.levelDbfs >= stats.squelchThresholdDbfs;
                 if (this->callback) {
                     this->callback(ChannelStatsUpdate { updateStats });
                 }

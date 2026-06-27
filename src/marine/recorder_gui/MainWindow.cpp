@@ -88,6 +88,15 @@ QString formatAudioLevel(const marine::SdrChannelStats &stats)
     return QLocale::c().toString(stats.audioLevelDbfs, 'f', 1) + QStringLiteral(" dBFS");
 }
 
+QString formatSquelchState(const marine::SdrChannelStats &stats)
+{
+    if (!stats.hasSquelch) {
+        return QStringLiteral("waiting");
+    }
+
+    return stats.squelchOpen ? QStringLiteral("open") : QStringLiteral("squelched");
+}
+
 int meterValue(double value, double minimum, double maximum)
 {
     const double clampedValue = std::clamp(value, minimum, maximum);
@@ -283,7 +292,7 @@ void MainWindow::refreshChannelTable()
         audioMeter->setTextVisible(true);
         channelTable->setCellWidget(row, 5, audioMeter);
 
-        channelTable->setItem(row, 6, new QTableWidgetItem(tr("closed")));
+        channelTable->setItem(row, 6, new QTableWidgetItem(tr("waiting")));
         channelTable->setItem(row, 7, new QTableWidgetItem(channel.recordByDefault ? tr("armed") : tr("off")));
     }
 
@@ -461,6 +470,11 @@ void MainWindow::updateChannelMeters(const QVector<marine::SdrChannelStats> &cha
                 ? meterValue(stats.audioLevelDbfs, MinimumAudioLevelDbfs, MaximumAudioLevelDbfs)
                 : 0);
         audioMeter->setFormat(formatAudioLevel(stats));
+
+        auto *squelchItem = channelTable->item(row, 6);
+        if (squelchItem) {
+            squelchItem->setText(formatSquelchState(stats));
+        }
     }
 }
 

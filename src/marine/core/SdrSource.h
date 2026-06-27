@@ -30,6 +30,7 @@ struct SdrChannelConfig
     QString name;
     qint64 frequencyHz = 156800000;
     int bandwidthHz = 10000;
+    double squelchThresholdDbfs = -45.0;
     bool enabled = true;
 };
 
@@ -58,6 +59,9 @@ struct SdrChannelStats
     quint64 audioSamplesRead = 0;
     bool hasAudioLevel = false;
     double audioLevelDbfs = -200.0;
+    bool hasSquelch = false;
+    bool squelchOpen = false;
+    double squelchThresholdDbfs = -45.0;
 };
 
 struct SdrStreamStats

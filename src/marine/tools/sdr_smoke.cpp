@@ -107,7 +107,9 @@ int main(int argc, char *argv[])
                 << "samples read:" << channelStats.samplesRead
                 << "power dBFS:" << channelStats.powerDbfs
                 << "audio samples read:" << channelStats.audioSamplesRead
-                << "audio level dBFS:" << channelStats.audioLevelDbfs;
+                << "audio level dBFS:" << channelStats.audioLevelDbfs
+                << "squelch:" << (channelStats.squelchOpen ? "open" : "squelched")
+                << "threshold dBFS:" << channelStats.squelchThresholdDbfs;
     }
     if (finalStats.samplesRead == 0) {
         qCritical() << "smoke failed: no samples were read";
@@ -132,6 +134,10 @@ int main(int argc, char *argv[])
     if (!finalStats.channelStats.first().hasAudioLevel) {
         qCritical() << "smoke failed: no audio level update was produced";
         return 11;
+    }
+    if (!finalStats.channelStats.first().hasSquelch) {
+        qCritical() << "smoke failed: no squelch state was produced";
+        return 12;
     }
 
     qInfo() << "sdr smoke completed";

@@ -107,6 +107,7 @@ struct GrOsMoBlocks
     osmosdr::source::sptr source;
     IqPowerSink::sptr powerSink;
     std::vector<ChannelReceiver::sptr> channelReceivers;
+    std::vector<QString> channelIds;
     std::vector<gr::blocks::multiply_const_ff::sptr> audioGains;
     gr::blocks::add_ff::sptr audioMixer;
     gr::audio::sink::sptr audioSink;
@@ -180,6 +181,35 @@ struct GrOsmoSdrSource::Impl
         emit owner->statsUpdated(statsSnapshot);
     }
 
+    void refreshLiveAudioGains()
+    {
+        SdrStreamStats statsSnapshot;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            statsSnapshot = activeStats;
+        }
+
+        const bool liveAudioEnabled = statsSnapshot.liveAudioEnabled;
+        const float openChannelGain = !blocks.audioGains.empty()
+            ? 1.0F / static_cast<float>(blocks.audioGains.size())
+            : 0.0F;
+
+        for (std::size_t index = 0; index < blocks.audioGains.size(); ++index) {
+            bool channelOpen = false;
+            if (index < blocks.channelIds.size()) {
+                const QString &channelId = blocks.channelIds.at(index);
+                for (const auto &channelStats : statsSnapshot.channelStats) {
+                    if (channelStats.id == channelId) {
+                        channelOpen = channelStats.hasSquelch && channelStats.squelchOpen;
+                        break;
+                    }
+                }
+            }
+
+            blocks.audioGains.at(index)->set_k(liveAudioEnabled && channelOpen ? openChannelGain : 0.0F);
+        }
+    }
+
     void updateChannelStats(const ChannelStatsUpdate &update)
     {
         SdrStreamStats statsSnapshot;
@@ -204,6 +234,11 @@ struct GrOsmoSdrSource::Impl
                         channelStats.hasAudioLevel = true;
                         channelStats.audioLevelDbfs = update.stats.audioLevelDbfs;
                     }
+                    if (update.stats.hasSquelch) {
+                        channelStats.hasSquelch = true;
+                        channelStats.squelchOpen = update.stats.squelchOpen;
+                        channelStats.squelchThresholdDbfs = update.stats.squelchThresholdDbfs;
+                    }
                     updated = true;
                     break;
                 }
@@ -214,6 +249,7 @@ struct GrOsmoSdrSource::Impl
             statsSnapshot = activeStats;
         }
         emit owner->statsUpdated(statsSnapshot);
+        refreshLiveAudioGains();
     }
 
     void emitStatsSnapshot()
@@ -247,8 +283,6 @@ struct GrOsmoSdrSource::Impl
         try {
             const auto firstStats = blocks.channelReceivers.front()->initialStats();
             const int audioSampleRateHz = std::max(firstStats.audioSampleRateHz, 1);
-            const float gain = 1.0F / static_cast<float>(blocks.channelReceivers.size());
-
             blocks.audioMixer = gr::blocks::add_ff::make();
             blocks.audioSink = gr::audio::sink::make(audioSampleRateHz);
             blocks.audioGains.clear();
@@ -276,9 +310,7 @@ struct GrOsmoSdrSource::Impl
                 blocks.topBlock->unlock();
             }
 
-            for (const auto &gainBlock : blocks.audioGains) {
-                gainBlock->set_k(gain);
-            }
+            refreshLiveAudioGains();
             return true;
         } catch (const std::exception &error) {
             if (errorMessage) {
@@ -298,17 +330,11 @@ struct GrOsmoSdrSource::Impl
             return false;
         }
 
-        const float gain = enabled && !blocks.audioGains.empty()
-            ? 1.0F / static_cast<float>(blocks.audioGains.size())
-            : 0.0F;
-        for (const auto &gainBlock : blocks.audioGains) {
-            gainBlock->set_k(gain);
-        }
-
         {
             std::lock_guard<std::mutex> lock(mutex);
             activeStats.liveAudioEnabled = enabled;
         }
+        refreshLiveAudioGains();
         emitStatsSnapshot();
         return true;
     }
@@ -440,6 +466,7 @@ bool GrOsmoSdrSource::open(const SdrSourceConfig &config, QString *errorMessage)
                 });
             channelReceiver->connectInput(blocks.topBlock, blocks.source);
             initialChannelStats.append(channelReceiver->initialStats());
+            blocks.channelIds.push_back(channel.id);
             blocks.channelReceivers.push_back(std::move(channelReceiver));
         }
 
