@@ -1,0 +1,150 @@
+#include "ChannelReceiver.h"
+
+#include "IqPowerSink.h"
+
+#include <gnuradio/filter/firdes.h>
+#include <gnuradio/filter/freq_xlating_fir_filter.h>
+
+#include <algorithm>
+#include <cmath>
+#include <stdexcept>
+#include <utility>
+#include <vector>
+
+namespace marine {
+
+namespace {
+
+constexpr int DefaultBandwidthHz = 10000;
+constexpr int TargetChannelSampleRateHz = 50000;
+constexpr int MinimumTransitionWidthHz = 2000;
+constexpr int PowerReportsPerSecond = 20;
+
+int normalizedBandwidth(int bandwidthHz)
+{
+    return std::max(bandwidthHz, DefaultBandwidthHz);
+}
+
+int channelDecimation(int inputSampleRateHz)
+{
+    if (inputSampleRateHz <= TargetChannelSampleRateHz) {
+        return 1;
+    }
+
+    return std::max(1, static_cast<int>(std::lround(
+        static_cast<double>(inputSampleRateHz) / static_cast<double>(TargetChannelSampleRateHz))));
+}
+
+std::vector<float> channelTaps(int inputSampleRateHz, int bandwidthHz)
+{
+    const double nyquistHz = static_cast<double>(inputSampleRateHz) / 2.0;
+    double cutoffHz = static_cast<double>(normalizedBandwidth(bandwidthHz)) / 2.0;
+    double transitionHz = std::max(static_cast<double>(MinimumTransitionWidthHz), cutoffHz);
+
+    if (cutoffHz >= nyquistHz) {
+        cutoffHz = nyquistHz * 0.5;
+    }
+    if (cutoffHz + transitionHz >= nyquistHz) {
+        transitionHz = std::max(100.0, nyquistHz - cutoffHz);
+    }
+
+    return gr::filter::firdes::low_pass(
+        1.0,
+        static_cast<double>(inputSampleRateHz),
+        cutoffHz,
+        transitionHz);
+}
+
+quint64 powerReportIntervalSamples(int sampleRateHz)
+{
+    return static_cast<quint64>(std::max(sampleRateHz / PowerReportsPerSecond, 1));
+}
+
+SdrChannelConfig normalizedChannelConfig(const SdrChannelConfig &channel)
+{
+    SdrChannelConfig normalized = channel;
+    if (normalized.id.isEmpty()) {
+        normalized.id = QStringLiteral("16");
+    }
+    if (normalized.name.isEmpty()) {
+        normalized.name = QStringLiteral("Marine Channel 16");
+    }
+    if (normalized.frequencyHz <= 0) {
+        normalized.frequencyHz = 156800000;
+    }
+    normalized.bandwidthHz = normalizedBandwidth(normalized.bandwidthHz);
+    return normalized;
+}
+
+} // namespace
+
+struct ChannelReceiver::Impl
+{
+    SdrChannelStats stats;
+    gr::filter::freq_xlating_fir_filter_ccf::sptr translatingFilter;
+    IqPowerSink::sptr powerSink;
+    Callback callback;
+
+    Impl(const ChannelReceiverConfig &config, Callback callback)
+        : callback(std::move(callback))
+    {
+        const SdrChannelConfig channel = normalizedChannelConfig(config.channel);
+        const int inputSampleRateHz = std::max(config.inputSampleRateHz, 1);
+        const qint64 offsetHz = channel.frequencyHz - config.centerFrequencyHz;
+        const double halfBandwidthHz = static_cast<double>(channel.bandwidthHz) / 2.0;
+        const double nyquistHz = static_cast<double>(inputSampleRateHz) / 2.0;
+        if (std::abs(static_cast<double>(offsetHz)) + halfBandwidthHz >= nyquistHz) {
+            throw std::runtime_error("channel is outside the configured SDR sample-rate span");
+        }
+
+        const int decimation = channelDecimation(inputSampleRateHz);
+        const int outputSampleRateHz = std::max(inputSampleRateHz / decimation, 1);
+
+        stats.id = channel.id;
+        stats.name = channel.name;
+        stats.frequencyHz = channel.frequencyHz;
+        stats.offsetHz = offsetHz;
+        stats.bandwidthHz = channel.bandwidthHz;
+        stats.sampleRateHz = outputSampleRateHz;
+
+        translatingFilter = gr::filter::freq_xlating_fir_filter_ccf::make(
+            decimation,
+            channelTaps(inputSampleRateHz, channel.bandwidthHz),
+            static_cast<double>(offsetHz),
+            static_cast<double>(inputSampleRateHz));
+        powerSink = IqPowerSink::make(
+            powerReportIntervalSamples(outputSampleRateHz),
+            [this](const IqPowerUpdate &update) {
+                SdrChannelStats updateStats = stats;
+                updateStats.samplesRead = update.samplesRead;
+                updateStats.hasPower = true;
+                updateStats.powerDbfs = update.powerDbfs;
+                if (this->callback) {
+                    this->callback(ChannelPowerUpdate { updateStats });
+                }
+            });
+    }
+};
+
+ChannelReceiver::sptr ChannelReceiver::make(const ChannelReceiverConfig &config, Callback callback)
+{
+    return sptr(new ChannelReceiver(std::make_unique<Impl>(config, std::move(callback))));
+}
+
+ChannelReceiver::ChannelReceiver(std::unique_ptr<Impl> impl)
+    : impl(std::move(impl))
+{
+}
+
+void ChannelReceiver::connectInput(const gr::top_block_sptr &topBlock, const gr::basic_block_sptr &source)
+{
+    topBlock->connect(source, 0, impl->translatingFilter, 0);
+    topBlock->connect(impl->translatingFilter, 0, impl->powerSink, 0);
+}
+
+SdrChannelStats ChannelReceiver::initialStats() const
+{
+    return impl->stats;
+}
+
+} // namespace marine

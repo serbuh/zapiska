@@ -16,7 +16,13 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include <algorithm>
+#include <cmath>
+
 namespace {
+
+constexpr double MinimumMeterPowerDbfs = -100.0;
+constexpr double MaximumMeterPowerDbfs = -20.0;
 
 QString sdrStateText(marine::SdrSourceState state)
 {
@@ -60,6 +66,23 @@ QString formatWidebandPower(const marine::SdrStreamStats &stats)
     }
 
     return QLocale::c().toString(stats.widebandPowerDbfs, 'f', 1) + QStringLiteral(" dBFS");
+}
+
+QString formatChannelPower(const marine::SdrChannelStats &stats)
+{
+    if (!stats.hasPower) {
+        return QStringLiteral("waiting");
+    }
+
+    return QLocale::c().toString(stats.powerDbfs, 'f', 1) + QStringLiteral(" dBFS");
+}
+
+int channelPowerMeterValue(double powerDbfs)
+{
+    const double clampedPower = std::clamp(powerDbfs, MinimumMeterPowerDbfs, MaximumMeterPowerDbfs);
+    const double normalized = (clampedPower - MinimumMeterPowerDbfs)
+        / (MaximumMeterPowerDbfs - MinimumMeterPowerDbfs);
+    return static_cast<int>(std::lround(normalized * 100.0));
 }
 
 } // namespace
@@ -234,7 +257,8 @@ void MainWindow::refreshChannelTable()
         auto *signalMeter = new QProgressBar(channelTable);
         signalMeter->setRange(0, 100);
         signalMeter->setValue(0);
-        signalMeter->setTextVisible(false);
+        signalMeter->setFormat(tr("waiting"));
+        signalMeter->setTextVisible(true);
         channelTable->setCellWidget(row, 4, signalMeter);
 
         channelTable->setItem(row, 5, new QTableWidgetItem(tr("closed")));
@@ -265,7 +289,7 @@ void MainWindow::toggleSdrConnection()
 
     sdrStatusLabel->setText(tr("SDR: connecting"));
     QString errorMessage;
-    marine::SdrSourceConfig config;
+    const marine::SdrSourceConfig config = buildSdrConfig();
     if (!sdrSource.open(config, &errorMessage)) {
         handleSdrError(errorMessage);
         refreshSdrControls();
@@ -313,6 +337,7 @@ void MainWindow::handleSdrStatsUpdated(const marine::SdrStreamStats &stats)
 {
     sampleCountLabel->setText(tr("Samples: %1").arg(formatSampleCount(stats.samplesRead)));
     widebandPowerLabel->setText(tr("Power: %1").arg(formatWidebandPower(stats)));
+    updateChannelSignalMeters(stats.channelStats);
 
     if (!stats.lastError.isEmpty()) {
         handleSdrError(stats.lastError);
@@ -349,6 +374,53 @@ void MainWindow::updateSdrConfigLabels(const marine::SdrSourceConfig &config)
         .arg(marine::formatFrequencyMHz(config.centerFrequencyHz)));
     sampleRateLabel->setText(tr("Sample rate: %1")
         .arg(formatSampleRate(config.sampleRateHz)));
+}
+
+marine::SdrSourceConfig MainWindow::buildSdrConfig() const
+{
+    marine::SdrSourceConfig config;
+    config.channels.reserve(visibleChannels.size());
+
+    for (const auto &channel : visibleChannels) {
+        marine::SdrChannelConfig sdrChannel;
+        sdrChannel.id = channel.id;
+        sdrChannel.name = channel.name;
+        sdrChannel.frequencyHz = channel.frequencyHz;
+        sdrChannel.bandwidthHz = channel.bandwidthHz;
+        sdrChannel.enabled = true;
+        config.channels.append(sdrChannel);
+    }
+
+    return config;
+}
+
+void MainWindow::updateChannelSignalMeters(const QVector<marine::SdrChannelStats> &channelStats)
+{
+    for (const auto &stats : channelStats) {
+        const int row = visibleChannelRow(stats.id);
+        if (row < 0) {
+            continue;
+        }
+
+        auto *signalMeter = qobject_cast<QProgressBar *>(channelTable->cellWidget(row, 4));
+        if (!signalMeter) {
+            continue;
+        }
+
+        signalMeter->setValue(stats.hasPower ? channelPowerMeterValue(stats.powerDbfs) : 0);
+        signalMeter->setFormat(formatChannelPower(stats));
+    }
+}
+
+int MainWindow::visibleChannelRow(const QString &id) const
+{
+    for (int row = 0; row < visibleChannels.size(); ++row) {
+        if (visibleChannels.at(row).id == id) {
+            return row;
+        }
+    }
+
+    return -1;
 }
 
 bool MainWindow::isChannelVisible(const QString &id) const

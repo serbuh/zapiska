@@ -24,6 +24,15 @@ struct SdrDeviceInfo
     QString deviceArgs;
 };
 
+struct SdrChannelConfig
+{
+    QString id;
+    QString name;
+    qint64 frequencyHz = 156800000;
+    int bandwidthHz = 10000;
+    bool enabled = true;
+};
+
 struct SdrSourceConfig
 {
     QString deviceArgs;
@@ -31,6 +40,20 @@ struct SdrSourceConfig
     int sampleRateHz = 2000000;
     double gainDb = 0.0;
     int blockSize = 16384;
+    QVector<SdrChannelConfig> channels;
+};
+
+struct SdrChannelStats
+{
+    QString id;
+    QString name;
+    qint64 frequencyHz = 0;
+    qint64 offsetHz = 0;
+    int bandwidthHz = 0;
+    int sampleRateHz = 0;
+    quint64 samplesRead = 0;
+    bool hasPower = false;
+    double powerDbfs = -200.0;
 };
 
 struct SdrStreamStats
@@ -40,6 +63,7 @@ struct SdrStreamStats
     quint64 droppedSamples = 0;
     bool hasWidebandPower = false;
     double widebandPowerDbfs = -200.0;
+    QVector<SdrChannelStats> channelStats;
     QString lastError;
 };
 
@@ -83,6 +107,8 @@ void registerSdrSourceMetaTypes();
 
 Q_DECLARE_METATYPE(marine::SdrSourceState)
 Q_DECLARE_METATYPE(marine::SdrDeviceInfo)
+Q_DECLARE_METATYPE(marine::SdrChannelConfig)
 Q_DECLARE_METATYPE(marine::SdrSourceConfig)
+Q_DECLARE_METATYPE(marine::SdrChannelStats)
 Q_DECLARE_METATYPE(marine::SdrStreamStats)
 Q_DECLARE_METATYPE(marine::IqBlock)

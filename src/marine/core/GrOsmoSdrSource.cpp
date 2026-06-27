@@ -1,5 +1,6 @@
 #include "GrOsmoSdrSource.h"
 
+#include "ChannelReceiver.h"
 #include "IqPowerSink.h"
 
 #include <gnuradio/top_block.h>
@@ -10,6 +11,7 @@
 #include <exception>
 #include <mutex>
 #include <string>
+#include <vector>
 
 namespace marine {
 
@@ -62,6 +64,38 @@ quint64 powerReportIntervalSamples(int sampleRateHz)
     return static_cast<quint64>(std::max(sampleRateHz / PowerReportsPerSecond, 1));
 }
 
+QVector<SdrChannelConfig> defaultChannelConfigs()
+{
+    SdrChannelConfig channel;
+    channel.id = QStringLiteral("16");
+    channel.name = QStringLiteral("Marine Channel 16");
+    channel.frequencyHz = 156800000;
+    channel.bandwidthHz = 10000;
+    channel.enabled = true;
+    return { channel };
+}
+
+QVector<SdrChannelConfig> enabledChannelConfigs(const SdrSourceConfig &config)
+{
+    const auto configuredChannels = config.channels.isEmpty()
+        ? defaultChannelConfigs()
+        : config.channels;
+
+    QVector<SdrChannelConfig> enabledChannels;
+    enabledChannels.reserve(configuredChannels.size());
+    for (const auto &channel : configuredChannels) {
+        if (channel.enabled) {
+            enabledChannels.append(channel);
+        }
+    }
+
+    if (enabledChannels.isEmpty()) {
+        return defaultChannelConfigs();
+    }
+
+    return enabledChannels;
+}
+
 } // namespace
 
 struct GrOsMoBlocks
@@ -69,6 +103,7 @@ struct GrOsMoBlocks
     gr::top_block_sptr topBlock;
     osmosdr::source::sptr source;
     IqPowerSink::sptr powerSink;
+    std::vector<ChannelReceiver::sptr> channelReceivers;
 };
 
 struct GrOsmoSdrSource::Impl
@@ -134,6 +169,27 @@ struct GrOsmoSdrSource::Impl
             activeStats.samplesRead = update.samplesRead;
             activeStats.hasWidebandPower = true;
             activeStats.widebandPowerDbfs = update.powerDbfs;
+            statsSnapshot = activeStats;
+        }
+        emit owner->statsUpdated(statsSnapshot);
+    }
+
+    void updateChannelPower(const ChannelPowerUpdate &update)
+    {
+        SdrStreamStats statsSnapshot;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            bool updated = false;
+            for (auto &channelStats : activeStats.channelStats) {
+                if (channelStats.id == update.stats.id) {
+                    channelStats = update.stats;
+                    updated = true;
+                    break;
+                }
+            }
+            if (!updated) {
+                activeStats.channelStats.append(update.stats);
+            }
             statsSnapshot = activeStats;
         }
         emit owner->statsUpdated(statsSnapshot);
@@ -250,6 +306,25 @@ bool GrOsmoSdrSource::open(const SdrSourceConfig &config, QString *errorMessage)
             });
         blocks.topBlock->connect(blocks.source, 0, blocks.powerSink, 0);
 
+        QVector<SdrChannelStats> initialChannelStats;
+        const auto channels = enabledChannelConfigs(config);
+        initialChannelStats.reserve(channels.size());
+        for (const auto &channel : channels) {
+            ChannelReceiverConfig receiverConfig;
+            receiverConfig.channel = channel;
+            receiverConfig.centerFrequencyHz = static_cast<qint64>(blocks.source->get_center_freq());
+            receiverConfig.inputSampleRateHz = actualSampleRateHz;
+
+            auto channelReceiver = ChannelReceiver::make(
+                receiverConfig,
+                [sourceImpl = impl.get()](const ChannelPowerUpdate &update) {
+                    sourceImpl->updateChannelPower(update);
+                });
+            channelReceiver->connectInput(blocks.topBlock, blocks.source);
+            initialChannelStats.append(channelReceiver->initialStats());
+            blocks.channelReceivers.push_back(std::move(channelReceiver));
+        }
+
         {
             std::lock_guard<std::mutex> lock(impl->mutex);
             impl->blocks = blocks;
@@ -257,7 +332,9 @@ bool GrOsmoSdrSource::open(const SdrSourceConfig &config, QString *errorMessage)
             impl->activeConfig.deviceArgs = deviceArgs;
             impl->activeConfig.sampleRateHz = actualSampleRateHz;
             impl->activeConfig.centerFrequencyHz = static_cast<qint64>(blocks.source->get_center_freq());
+            impl->activeConfig.channels = channels;
             impl->activeStats = {};
+            impl->activeStats.channelStats = initialChannelStats;
         }
 
         impl->setState(SdrSourceState::Open);

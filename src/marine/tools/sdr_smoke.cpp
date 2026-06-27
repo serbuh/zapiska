@@ -94,6 +94,11 @@ int main(int argc, char *argv[])
 
     qInfo() << "samples read:" << finalStats.samplesRead
             << "wideband power dBFS:" << finalStats.widebandPowerDbfs;
+    for (const auto &channelStats : finalStats.channelStats) {
+        qInfo() << "channel:" << channelStats.id
+                << "samples read:" << channelStats.samplesRead
+                << "power dBFS:" << channelStats.powerDbfs;
+    }
     if (finalStats.samplesRead == 0) {
         qCritical() << "smoke failed: no samples were read";
         return 5;
@@ -101,6 +106,14 @@ int main(int argc, char *argv[])
     if (!finalStats.hasWidebandPower) {
         qCritical() << "smoke failed: no wideband power update was produced";
         return 6;
+    }
+    if (finalStats.channelStats.isEmpty()) {
+        qCritical() << "smoke failed: no channel receivers were configured";
+        return 7;
+    }
+    if (!finalStats.channelStats.first().hasPower) {
+        qCritical() << "smoke failed: no channel power update was produced";
+        return 8;
     }
 
     qInfo() << "sdr smoke completed";

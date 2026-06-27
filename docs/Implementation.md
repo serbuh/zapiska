@@ -53,10 +53,18 @@ This document tracks the current implementation state for Zapiska's marine recor
   - samples read,
   - wideband power in dBFS,
   - SDR open/start errors.
+- Added `ChannelReceiver`, a per-channel GNU Radio receiver branch that:
+  - frequency-translates a configured channel offset to baseband,
+  - low-pass filters the configured channel bandwidth,
+  - decimates the channel stream,
+  - measures reduced-rate channel power with `IqPowerSink`.
+- Added channel configuration and channel power stats to `SdrSourceConfig`/`SdrStreamStats`.
+- Wired the recorder GUI signal meter to live Channel 16 power.
+- Extended `marine-sdr-smoke` to fail if channel power is not produced.
 
 ## Current Step
 
-Step 7 is complete: the recorder GUI can open, start, stop, and disconnect the gr-osmosdr backend while displaying live wideband stream stats.
+Step 8 is complete: `marine-core` now has a Channel 16 receiver branch that translates, filters, decimates, and reports per-channel power.
 
 ## Verification
 
@@ -65,30 +73,32 @@ Step 7 is complete: the recorder GUI can open, start, stop, and disconnect the g
 - Built and ran `marine-sdr-smoke` against a temporary gr-osmosdr file source.
 - Verified that `marine-sdr-smoke` reports non-zero `samplesRead` and a wideband power value.
 - Rebuilt the `marine-recorder-gui` target after wiring the SDR controls.
+- Rebuilt `marine-recorder-gui` and `marine-sdr-smoke` after adding `ChannelReceiver`.
+- Verified that `marine-sdr-smoke` reports Channel 16 samples and channel power for both:
+  - the temporary file source,
+  - the attached HackRF One.
 
 ## Left To Do
 
-1. Add `ChannelReceiver` for per-channel frequency offset and channel power.
-2. Add NFM demodulation and audio level measurement.
-3. Add WAV recording for Channel 16.
-4. Add JSON sidecar metadata for recordings.
-5. Add a configurable second channel display.
-6. Add per-channel squelch state and threshold controls.
-7. Add per-channel recording controls.
-8. Add a separate playback GUI for recorded WAV files.
-9. Add squelch-gated segment recording and timeline metadata.
+1. Add NFM demodulation and audio level measurement.
+2. Add WAV recording for Channel 16.
+3. Add JSON sidecar metadata for recordings.
+4. Add a configurable second channel display.
+5. Add per-channel squelch state and threshold controls.
+6. Add per-channel recording controls.
+7. Add a separate playback GUI for recorded WAV files.
+8. Add squelch-gated segment recording and timeline metadata.
 
 ## Immediate Next Step
 
-Add `ChannelReceiver` for per-channel frequency offset and channel power.
+Add NFM demodulation and audio level measurement.
 
 Acceptance criteria:
 
-- Add a core receiver block that translates a configured channel offset from the wideband IQ stream.
-- Low-pass/filter the channel bandwidth before power measurement.
-- Emit reduced-rate per-channel power stats suitable for squelch decisions.
-- Start with Channel 16 only, using the existing visible-channel defaults.
-- Keep demodulation and audio output out of this step.
+- Add a GNU Radio NFM demodulator path after the Channel 16 receiver filter.
+- Produce a reduced-rate audio-level metric for GUI display and squelch tuning.
+- Keep audio playback and WAV recording out of this step.
+- Extend `marine-sdr-smoke` to fail if demodulated audio samples or audio-level updates are not produced.
 
 ## Notes
 

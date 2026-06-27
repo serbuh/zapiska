@@ -1,4 +1,6 @@
 add_library(marine-core STATIC
+    core/ChannelReceiver.cpp
+    core/ChannelReceiver.h
     core/GrOsmoSdrSource.cpp
     core/GrOsmoSdrSource.h
     core/IqPowerSink.cpp
@@ -9,7 +11,7 @@ add_library(marine-core STATIC
     core/SdrSource.h
 )
 
-find_package(Gnuradio REQUIRED COMPONENTS blocks)
+find_package(Gnuradio REQUIRED COMPONENTS blocks fft filter)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GR_OSMOSDR REQUIRED IMPORTED_TARGET gnuradio-osmosdr)
 
@@ -23,6 +25,8 @@ target_link_libraries(marine-core
         ${ZAPISKA_QT_PACKAGE}::Core
     PRIVATE
         gnuradio::gnuradio-blocks
+        gnuradio::gnuradio-fft
+        gnuradio::gnuradio-filter
         PkgConfig::GR_OSMOSDR
 )
 
