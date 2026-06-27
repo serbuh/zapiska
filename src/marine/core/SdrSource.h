@@ -16,6 +16,13 @@ enum class SdrSourceState
     Error,
 };
 
+enum class SdrSquelchMode
+{
+    Automatic,
+    ForcedOpen,
+    ForcedClosed,
+};
+
 struct SdrDeviceInfo
 {
     QString displayName;
@@ -31,6 +38,7 @@ struct SdrChannelConfig
     qint64 frequencyHz = 156800000;
     int bandwidthHz = 10000;
     double squelchThresholdDbfs = -45.0;
+    SdrSquelchMode squelchMode = SdrSquelchMode::Automatic;
     bool enabled = true;
 };
 
@@ -62,6 +70,7 @@ struct SdrChannelStats
     bool hasSquelch = false;
     bool squelchOpen = false;
     double squelchThresholdDbfs = -45.0;
+    SdrSquelchMode squelchMode = SdrSquelchMode::Automatic;
 };
 
 struct SdrStreamStats
@@ -101,6 +110,10 @@ public:
     virtual void stop() = 0;
     virtual bool setLiveAudioEnabled(bool enabled, QString *errorMessage = nullptr) = 0;
     virtual bool liveAudioEnabled() const = 0;
+    virtual bool setChannelSquelch(const QString &channelId,
+        SdrSquelchMode mode,
+        double thresholdDbfs,
+        QString *errorMessage = nullptr) = 0;
     virtual SdrSourceState state() const = 0;
     virtual SdrSourceConfig config() const = 0;
     virtual SdrStreamStats stats() const = 0;
@@ -117,6 +130,7 @@ void registerSdrSourceMetaTypes();
 } // namespace marine
 
 Q_DECLARE_METATYPE(marine::SdrSourceState)
+Q_DECLARE_METATYPE(marine::SdrSquelchMode)
 Q_DECLARE_METATYPE(marine::SdrDeviceInfo)
 Q_DECLARE_METATYPE(marine::SdrChannelConfig)
 Q_DECLARE_METATYPE(marine::SdrSourceConfig)

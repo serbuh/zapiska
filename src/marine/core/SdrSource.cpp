@@ -14,6 +14,7 @@ SdrSource::~SdrSource() = default;
 void registerSdrSourceMetaTypes()
 {
     qRegisterMetaType<marine::SdrSourceState>("marine::SdrSourceState");
+    qRegisterMetaType<marine::SdrSquelchMode>("marine::SdrSquelchMode");
     qRegisterMetaType<marine::SdrDeviceInfo>("marine::SdrDeviceInfo");
     qRegisterMetaType<marine::SdrChannelConfig>("marine::SdrChannelConfig");
     qRegisterMetaType<marine::SdrSourceConfig>("marine::SdrSourceConfig");

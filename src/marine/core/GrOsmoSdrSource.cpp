@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <exception>
+#include <iterator>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -224,6 +225,8 @@ struct GrOsmoSdrSource::Impl
                     channelStats.bandwidthHz = update.stats.bandwidthHz;
                     channelStats.sampleRateHz = update.stats.sampleRateHz;
                     channelStats.audioSampleRateHz = update.stats.audioSampleRateHz;
+                    channelStats.squelchThresholdDbfs = update.stats.squelchThresholdDbfs;
+                    channelStats.squelchMode = update.stats.squelchMode;
                     if (update.stats.hasPower) {
                         channelStats.samplesRead = update.stats.samplesRead;
                         channelStats.hasPower = true;
@@ -336,6 +339,48 @@ struct GrOsmoSdrSource::Impl
         }
         refreshLiveAudioGains();
         emitStatsSnapshot();
+        return true;
+    }
+
+    bool setChannelSquelch(const QString &channelId,
+        SdrSquelchMode mode,
+        double thresholdDbfs,
+        QString *errorMessage)
+    {
+        if (errorMessage) {
+            errorMessage->clear();
+        }
+
+        const auto receiverIt = std::find(blocks.channelIds.begin(), blocks.channelIds.end(), channelId);
+        if (receiverIt == blocks.channelIds.end()) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Channel %1 is not active").arg(channelId);
+            }
+            return false;
+        }
+
+        const auto receiverIndex = static_cast<std::size_t>(
+            std::distance(blocks.channelIds.begin(), receiverIt));
+        if (receiverIndex >= blocks.channelReceivers.size()) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Channel %1 receiver is unavailable").arg(channelId);
+            }
+            return false;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            for (auto &channel : activeConfig.channels) {
+                if (channel.id == channelId) {
+                    channel.squelchMode = mode;
+                    channel.squelchThresholdDbfs = thresholdDbfs;
+                    break;
+                }
+            }
+        }
+
+        blocks.channelReceivers.at(receiverIndex)->setSquelch(mode, thresholdDbfs);
+        refreshLiveAudioGains();
         return true;
     }
 
@@ -552,6 +597,14 @@ bool GrOsmoSdrSource::setLiveAudioEnabled(bool enabled, QString *errorMessage)
 bool GrOsmoSdrSource::liveAudioEnabled() const
 {
     return stats().liveAudioEnabled;
+}
+
+bool GrOsmoSdrSource::setChannelSquelch(const QString &channelId,
+    SdrSquelchMode mode,
+    double thresholdDbfs,
+    QString *errorMessage)
+{
+    return impl->setChannelSquelch(channelId, mode, thresholdDbfs, errorMessage);
 }
 
 SdrSourceState GrOsmoSdrSource::state() const

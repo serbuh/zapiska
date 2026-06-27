@@ -41,6 +41,59 @@ QString defaultFileDeviceArgs(QTemporaryFile &file)
         .arg(file.fileName());
 }
 
+bool runManualSquelchCheck(marine::GrOsmoSdrSource &source, QString *error)
+{
+    if (!source.setChannelSquelch(
+            QStringLiteral("16"),
+            marine::SdrSquelchMode::ForcedOpen,
+            -70.0,
+            error)) {
+        qCritical() << "manual squelch check failed: force-open rejected:" << *error;
+        return false;
+    }
+
+    auto stats = source.stats();
+    if (stats.channelStats.isEmpty()
+        || stats.channelStats.first().squelchMode != marine::SdrSquelchMode::ForcedOpen
+        || !stats.channelStats.first().hasSquelch
+        || !stats.channelStats.first().squelchOpen
+        || stats.channelStats.first().squelchThresholdDbfs != -70.0) {
+        qCritical() << "manual squelch check failed: force-open state was not applied";
+        return false;
+    }
+
+    if (!source.setChannelSquelch(
+            QStringLiteral("16"),
+            marine::SdrSquelchMode::ForcedClosed,
+            -55.5,
+            error)) {
+        qCritical() << "manual squelch check failed: force-muted rejected:" << *error;
+        return false;
+    }
+
+    stats = source.stats();
+    if (stats.channelStats.isEmpty()
+        || stats.channelStats.first().squelchMode != marine::SdrSquelchMode::ForcedClosed
+        || !stats.channelStats.first().hasSquelch
+        || stats.channelStats.first().squelchOpen
+        || stats.channelStats.first().squelchThresholdDbfs != -55.5) {
+        qCritical() << "manual squelch check failed: force-muted state was not applied";
+        return false;
+    }
+
+    if (!source.setChannelSquelch(
+            QStringLiteral("16"),
+            marine::SdrSquelchMode::Automatic,
+            -45.0,
+            error)) {
+        qCritical() << "manual squelch check failed: auto restore rejected:" << *error;
+        return false;
+    }
+
+    qInfo() << "manual squelch check completed";
+    return true;
+}
+
 } // namespace
 
 int main(int argc, char *argv[])
@@ -78,6 +131,11 @@ int main(int argc, char *argv[])
     if (!source.open(config, &error)) {
         qCritical() << "open failed:" << error;
         return 3;
+    }
+
+    if (args.contains(QStringLiteral("--manual-squelch-check"))
+        && !runManualSquelchCheck(source, &error)) {
+        return 13;
     }
 
     if (args.contains(QStringLiteral("--live-audio"))) {

@@ -4,6 +4,7 @@
 
 #include <QAbstractItemView>
 #include <QComboBox>
+#include <QDoubleSpinBox>
 #include <QHeaderView>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -25,6 +26,7 @@ constexpr double MinimumMeterPowerDbfs = -100.0;
 constexpr double MaximumMeterPowerDbfs = -20.0;
 constexpr double MinimumAudioLevelDbfs = -80.0;
 constexpr double MaximumAudioLevelDbfs = 0.0;
+constexpr double DefaultSquelchThresholdDbfs = -45.0;
 
 QString sdrStateText(marine::SdrSourceState state)
 {
@@ -90,11 +92,22 @@ QString formatAudioLevel(const marine::SdrChannelStats &stats)
 
 QString formatSquelchState(const marine::SdrChannelStats &stats)
 {
+    if (stats.squelchMode == marine::SdrSquelchMode::ForcedOpen) {
+        return QStringLiteral("open");
+    }
+    if (stats.squelchMode == marine::SdrSquelchMode::ForcedClosed) {
+        return QStringLiteral("muted");
+    }
     if (!stats.hasSquelch) {
         return QStringLiteral("waiting");
     }
 
     return stats.squelchOpen ? QStringLiteral("open") : QStringLiteral("squelched");
+}
+
+marine::SdrSquelchMode squelchModeFromCombo(const QComboBox *combo)
+{
+    return static_cast<marine::SdrSquelchMode>(combo->currentData().toInt());
 }
 
 int meterValue(double value, double minimum, double maximum)
@@ -187,7 +200,7 @@ void MainWindow::buildUi()
     channelControlsLayout->addWidget(removeChannelButton);
 
     channelTable = new QTableWidget(root);
-    channelTable->setColumnCount(8);
+    channelTable->setColumnCount(10);
     channelTable->setHorizontalHeaderLabels({
         tr("Channel"),
         tr("Frequency"),
@@ -196,6 +209,8 @@ void MainWindow::buildUi()
         tr("Signal"),
         tr("Audio"),
         tr("Squelch"),
+        tr("Threshold"),
+        tr("State"),
         tr("Recording"),
     });
     channelTable->horizontalHeader()->setStretchLastSection(true);
@@ -292,8 +307,37 @@ void MainWindow::refreshChannelTable()
         audioMeter->setTextVisible(true);
         channelTable->setCellWidget(row, 5, audioMeter);
 
-        channelTable->setItem(row, 6, new QTableWidgetItem(tr("waiting")));
-        channelTable->setItem(row, 7, new QTableWidgetItem(channel.recordByDefault ? tr("armed") : tr("off")));
+        auto *squelchMode = new QComboBox(channelTable);
+        squelchMode->addItem(tr("Auto"), static_cast<int>(marine::SdrSquelchMode::Automatic));
+        squelchMode->addItem(tr("Open"), static_cast<int>(marine::SdrSquelchMode::ForcedOpen));
+        squelchMode->addItem(tr("Muted"), static_cast<int>(marine::SdrSquelchMode::ForcedClosed));
+        squelchMode->setCurrentIndex(static_cast<int>(squelchModeForChannel(channel.id)));
+        connect(
+            squelchMode,
+            static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
+            this,
+            [this, id = channel.id]() {
+                applyChannelSquelch(id);
+            });
+        channelTable->setCellWidget(row, 6, squelchMode);
+
+        auto *threshold = new QDoubleSpinBox(channelTable);
+        threshold->setRange(-120.0, 0.0);
+        threshold->setDecimals(1);
+        threshold->setSingleStep(1.0);
+        threshold->setSuffix(tr(" dBFS"));
+        threshold->setValue(squelchThresholdForChannel(channel.id));
+        connect(
+            threshold,
+            static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged),
+            this,
+            [this, id = channel.id]() {
+                applyChannelSquelch(id);
+            });
+        channelTable->setCellWidget(row, 7, threshold);
+
+        channelTable->setItem(row, 8, new QTableWidgetItem(tr("waiting")));
+        channelTable->setItem(row, 9, new QTableWidgetItem(channel.recordByDefault ? tr("armed") : tr("off")));
     }
 
     channelTable->resizeColumnsToContents();
@@ -436,6 +480,8 @@ marine::SdrSourceConfig MainWindow::buildSdrConfig() const
         sdrChannel.name = channel.name;
         sdrChannel.frequencyHz = channel.frequencyHz;
         sdrChannel.bandwidthHz = channel.bandwidthHz;
+        sdrChannel.squelchMode = squelchModeForChannel(channel.id);
+        sdrChannel.squelchThresholdDbfs = squelchThresholdForChannel(channel.id);
         sdrChannel.enabled = true;
         config.channels.append(sdrChannel);
     }
@@ -471,7 +517,7 @@ void MainWindow::updateChannelMeters(const QVector<marine::SdrChannelStats> &cha
                 : 0);
         audioMeter->setFormat(formatAudioLevel(stats));
 
-        auto *squelchItem = channelTable->item(row, 6);
+        auto *squelchItem = channelTable->item(row, 8);
         if (squelchItem) {
             squelchItem->setText(formatSquelchState(stats));
         }
@@ -487,6 +533,45 @@ int MainWindow::visibleChannelRow(const QString &id) const
     }
 
     return -1;
+}
+
+marine::SdrSquelchMode MainWindow::squelchModeForChannel(const QString &id) const
+{
+    return channelSquelchModes.value(id, marine::SdrSquelchMode::Automatic);
+}
+
+double MainWindow::squelchThresholdForChannel(const QString &id) const
+{
+    return channelSquelchThresholds.value(id, DefaultSquelchThresholdDbfs);
+}
+
+void MainWindow::applyChannelSquelch(const QString &id)
+{
+    const int row = visibleChannelRow(id);
+    if (row < 0) {
+        return;
+    }
+
+    const auto *modeCombo = qobject_cast<QComboBox *>(channelTable->cellWidget(row, 6));
+    const auto *thresholdSpin = qobject_cast<QDoubleSpinBox *>(channelTable->cellWidget(row, 7));
+    if (!modeCombo || !thresholdSpin) {
+        return;
+    }
+
+    const auto mode = squelchModeFromCombo(modeCombo);
+    const double threshold = thresholdSpin->value();
+    channelSquelchModes.insert(id, mode);
+    channelSquelchThresholds.insert(id, threshold);
+
+    const auto state = sdrSource.state();
+    if (state != marine::SdrSourceState::Open && state != marine::SdrSourceState::Streaming) {
+        return;
+    }
+
+    QString errorMessage;
+    if (!sdrSource.setChannelSquelch(id, mode, threshold, &errorMessage)) {
+        handleSdrError(errorMessage);
+    }
 }
 
 bool MainWindow::isChannelVisible(const QString &id) const

@@ -3,10 +3,12 @@
 #include "GrOsmoSdrSource.h"
 #include "MarineCore.h"
 
+#include <QHash>
 #include <QMainWindow>
 #include <QVector>
 
 class QComboBox;
+class QDoubleSpinBox;
 class QLabel;
 class QProgressBar;
 class QPushButton;
@@ -39,6 +41,9 @@ private:
     marine::SdrSourceConfig buildSdrConfig() const;
     void updateChannelMeters(const QVector<marine::SdrChannelStats> &channelStats);
     int visibleChannelRow(const QString &id) const;
+    marine::SdrSquelchMode squelchModeForChannel(const QString &id) const;
+    double squelchThresholdForChannel(const QString &id) const;
+    void applyChannelSquelch(const QString &id);
 
     void addSelectedChannel();
     void removeSelectedChannel();
@@ -63,6 +68,8 @@ private:
     QPushButton *removeChannelButton = nullptr;
     QTableWidget *channelTable = nullptr;
 
+    QHash<QString, marine::SdrSquelchMode> channelSquelchModes;
+    QHash<QString, double> channelSquelchThresholds;
     QVector<marine::ChannelConfig> channelCatalog;
     QVector<marine::ChannelConfig> visibleChannels;
 };

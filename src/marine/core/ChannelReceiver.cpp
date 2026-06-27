@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <mutex>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -84,16 +85,31 @@ SdrChannelConfig normalizedChannelConfig(const SdrChannelConfig &channel)
         normalized.frequencyHz = 156800000;
     }
     normalized.bandwidthHz = normalizedBandwidth(normalized.bandwidthHz);
-    if (normalized.squelchThresholdDbfs >= 0.0) {
+    if (normalized.squelchThresholdDbfs > 0.0) {
         normalized.squelchThresholdDbfs = DefaultSquelchThresholdDbfs;
     }
     return normalized;
+}
+
+bool squelchOpenFor(SdrSquelchMode mode, double levelDbfs, double thresholdDbfs)
+{
+    switch (mode) {
+    case SdrSquelchMode::Automatic:
+        return levelDbfs >= thresholdDbfs;
+    case SdrSquelchMode::ForcedOpen:
+        return true;
+    case SdrSquelchMode::ForcedClosed:
+        return false;
+    }
+
+    return false;
 }
 
 } // namespace
 
 struct ChannelReceiver::Impl
 {
+    mutable std::mutex mutex;
     SdrChannelStats stats;
     gr::filter::freq_xlating_fir_filter_ccf::sptr translatingFilter;
     IqPowerSink::sptr powerSink;
@@ -124,6 +140,11 @@ struct ChannelReceiver::Impl
         stats.sampleRateHz = outputSampleRateHz;
         stats.audioSampleRateHz = outputSampleRateHz;
         stats.squelchThresholdDbfs = channel.squelchThresholdDbfs;
+        stats.squelchMode = channel.squelchMode;
+        if (stats.squelchMode != SdrSquelchMode::Automatic) {
+            stats.hasSquelch = true;
+            stats.squelchOpen = squelchOpenFor(stats.squelchMode, stats.audioLevelDbfs, stats.squelchThresholdDbfs);
+        }
 
         translatingFilter = gr::filter::freq_xlating_fir_filter_ccf::make(
             decimation,
@@ -133,10 +154,14 @@ struct ChannelReceiver::Impl
         powerSink = IqPowerSink::make(
             powerReportIntervalSamples(outputSampleRateHz),
             [this](const IqPowerUpdate &update) {
-                SdrChannelStats updateStats = stats;
-                updateStats.samplesRead = update.samplesRead;
-                updateStats.hasPower = true;
-                updateStats.powerDbfs = update.powerDbfs;
+                SdrChannelStats updateStats;
+                {
+                    std::lock_guard<std::mutex> lock(mutex);
+                    stats.samplesRead = update.samplesRead;
+                    stats.hasPower = true;
+                    stats.powerDbfs = update.powerDbfs;
+                    updateStats = stats;
+                }
                 if (this->callback) {
                     this->callback(ChannelStatsUpdate { updateStats });
                 }
@@ -146,12 +171,19 @@ struct ChannelReceiver::Impl
         audioLevelSink = AudioLevelSink::make(
             powerReportIntervalSamples(outputSampleRateHz),
             [this](const AudioLevelUpdate &update) {
-                SdrChannelStats updateStats = stats;
-                updateStats.audioSamplesRead = update.samplesRead;
-                updateStats.hasAudioLevel = true;
-                updateStats.audioLevelDbfs = update.levelDbfs;
-                updateStats.hasSquelch = true;
-                updateStats.squelchOpen = update.levelDbfs >= stats.squelchThresholdDbfs;
+                SdrChannelStats updateStats;
+                {
+                    std::lock_guard<std::mutex> lock(mutex);
+                    stats.audioSamplesRead = update.samplesRead;
+                    stats.hasAudioLevel = true;
+                    stats.audioLevelDbfs = update.levelDbfs;
+                    stats.hasSquelch = true;
+                    stats.squelchOpen = squelchOpenFor(
+                        stats.squelchMode,
+                        update.levelDbfs,
+                        stats.squelchThresholdDbfs);
+                    updateStats = stats;
+                }
                 if (this->callback) {
                     this->callback(ChannelStatsUpdate { updateStats });
                 }
@@ -184,8 +216,36 @@ void ChannelReceiver::connectAudioOutput(const gr::top_block_sptr &topBlock,
     topBlock->connect(impl->demodulator, 0, destination, destinationPort);
 }
 
+void ChannelReceiver::setSquelch(SdrSquelchMode mode, double thresholdDbfs)
+{
+    SdrChannelStats updateStats;
+    {
+        std::lock_guard<std::mutex> lock(impl->mutex);
+        impl->stats.squelchMode = mode;
+        impl->stats.squelchThresholdDbfs = thresholdDbfs > 0.0
+            ? DefaultSquelchThresholdDbfs
+            : thresholdDbfs;
+        if (impl->stats.squelchMode != SdrSquelchMode::Automatic || impl->stats.hasAudioLevel) {
+            impl->stats.hasSquelch = true;
+            impl->stats.squelchOpen = squelchOpenFor(
+                impl->stats.squelchMode,
+                impl->stats.audioLevelDbfs,
+                impl->stats.squelchThresholdDbfs);
+        } else {
+            impl->stats.hasSquelch = false;
+            impl->stats.squelchOpen = false;
+        }
+        updateStats = impl->stats;
+    }
+
+    if (impl->callback) {
+        impl->callback(ChannelStatsUpdate { updateStats });
+    }
+}
+
 SdrChannelStats ChannelReceiver::initialStats() const
 {
+    std::lock_guard<std::mutex> lock(impl->mutex);
     return impl->stats;
 }
 

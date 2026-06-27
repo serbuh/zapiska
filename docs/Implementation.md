@@ -82,10 +82,18 @@ This document tracks the current implementation state for Zapiska's marine recor
   - GUI squelch state display,
   - live monitor muting for squelched channels.
 - Extended `marine-sdr-smoke` to fail if squelch state is not produced.
+- Added manual per-channel squelch controls:
+  - automatic/open/muted mode in the channel table,
+  - editable squelch threshold in dBFS,
+  - runtime `SdrSource::setChannelSquelch` updates for active receivers,
+  - immediate live monitor gain refresh when a channel is forced open or muted.
+- Extended `marine-sdr-smoke` with `--manual-squelch-check` to verify forced-open,
+  forced-muted, and threshold updates.
 
 ## Current Step
 
-Step 11 is complete: live monitor playback now mutes squelched channels and the GUI shows each channel's squelch state.
+Step 12 is complete: each visible channel can now stay automatic, be forced open,
+be forced muted, and use its own squelch threshold before recording is added.
 
 ## Verification
 
@@ -108,6 +116,11 @@ Step 11 is complete: live monitor playback now mutes squelched channels and the 
 - Verified that `marine-sdr-smoke` reports squelch state for both:
   - the temporary file source,
   - the attached HackRF One.
+- Rebuilt `marine-recorder-gui` and `marine-sdr-smoke` after adding manual squelch controls.
+- Verified `marine-sdr-smoke --manual-squelch-check` against the temporary file source.
+- Verified `marine-sdr-smoke --live-audio --duration-ms 300` opens the live monitor path.
+- Verified `marine-sdr-smoke --manual-squelch-check --device-args hackrf=0 --sample-rate 2000000 --duration-ms 2000`
+  against the attached HackRF One.
 
 ## Left To Do
 
@@ -120,7 +133,8 @@ Step 11 is complete: live monitor playback now mutes squelched channels and the 
 
 ## Immediate Next Step
 
-Add WAV recording for Channel 16.
+Add WAV recording for Channel 16 now that demodulated playback and manual squelch
+control are in place.
 
 Acceptance criteria:
 
@@ -135,5 +149,5 @@ Acceptance criteria:
 - Primary recorder backend decision: use GNU Radio with gr-osmosdr, matching the working Gqrx stack.
 - The Record control remains disabled until audio recording exists.
 - Channel 16 remains the only default-enabled/default-recording channel.
-- Channel selection is runtime-only for now; selected channels are not persisted.
+- Channel selection and squelch settings are runtime-only for now; they are not persisted.
 - The code should continue to keep the core library independent from GUI-specific behavior.

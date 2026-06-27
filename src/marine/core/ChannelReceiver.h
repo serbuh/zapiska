@@ -34,6 +34,7 @@ public:
     void connectAudioOutput(const gr::top_block_sptr &topBlock,
         const gr::basic_block_sptr &destination,
         int destinationPort);
+    void setSquelch(SdrSquelchMode mode, double thresholdDbfs);
     SdrChannelStats initialStats() const;
 
 private:
