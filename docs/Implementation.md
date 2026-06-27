@@ -34,7 +34,7 @@ This document tracks the current implementation state for Zapiska's marine recor
 
 ## Current Step
 
-Step 4 is complete: `marine-core` now has the SDR source abstraction needed by the future HackRF/SoapySDR backend.
+Step 4 is complete: `marine-core` now has the SDR source abstraction needed by the future GNU Radio/gr-osmosdr backend.
 
 ## Verification
 
@@ -43,7 +43,7 @@ Step 4 is complete: `marine-core` now has the SDR source abstraction needed by t
 
 ## Left To Do
 
-1. Add a HackRF/SoapySDR implementation behind `SdrSource`.
+1. Add a GNU Radio/gr-osmosdr implementation behind `SdrSource`.
 2. Stream IQ samples and compute raw wideband power.
 3. Display live HackRF power in the recorder GUI.
 4. Add `ChannelReceiver` for per-channel frequency offset and channel power.
@@ -56,8 +56,25 @@ Step 4 is complete: `marine-core` now has the SDR source abstraction needed by t
 11. Add a separate playback GUI for recorded WAV files.
 12. Add squelch-gated segment recording and timeline metadata.
 
+## Immediate Next Step
+
+Add `GrOsmoSdrSource` in `marine-core`.
+
+Acceptance criteria:
+
+- CMake finds GNU Radio runtime and gr-osmosdr.
+- `GrOsmoSdrSource` implements the existing `SdrSource` interface.
+- The backend can create a GNU Radio `top_block`.
+- The backend can create an `osmosdr::source` using a HackRF-compatible device string.
+- The backend can apply center frequency, sample rate, and basic gain settings.
+- Start/stop lifecycle works without involving the recorder GUI yet.
+- If GNU Radio or gr-osmosdr is missing, CMake fails clearly rather than silently building an unusable backend.
+
+After that, the next slice should add a small GNU Radio sink/probe block that computes wideband IQ power and reports it to the GUI.
+
 ## Notes
 
+- Primary recorder backend decision: use GNU Radio with gr-osmosdr, matching the working Gqrx stack.
 - The SDR Connect/Start/Record controls are intentionally disabled until the SDR backend exists.
 - Channel 16 remains the only default-enabled/default-recording channel.
 - Channel selection is runtime-only for now; selected channels are not persisted.

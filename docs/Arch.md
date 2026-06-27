@@ -66,19 +66,39 @@ Recommended stack:
 
 - C++ for the core and GUI.
 - Qt for the recorder and playback GUIs.
-- SoapySDR for HackRF access.
-- liquid-dsp or focused internal DSP code for filtering, frequency shifting, resampling, and NFM demodulation.
+- GNU Radio for SDR flowgraphs and DSP.
+- gr-osmosdr for HackRF access.
+- GNU Radio DSP blocks for filtering, frequency shifting, resampling, squelch, NFM demodulation, and recording sinks.
 - WAV for first audio recordings.
 - JSON sidecar files for recording metadata.
 
-SoapySDR is preferred over direct HackRF-only APIs because it keeps the device layer portable. HackRF remains the first supported target.
+The primary SDR backend is GNU Radio with gr-osmosdr. This matches the working Gqrx stack on the development machine and avoids rebuilding the channel filtering, demodulation, squelch, and recording pipeline by hand.
+
+SoapySDR is not the primary backend for Zapiska. It can be reconsidered later as a lighter device-access layer, but the first production path should follow the locally proven Gqrx approach.
+
+## Backend Decision
+
+Zapiska should use GNU Radio and gr-osmosdr as the recorder backend.
+
+Decision drivers:
+
+- Gqrx already works locally with HackRF through GNU Radio and gr-osmosdr.
+- The project needs one wide IQ stream split into multiple simultaneous marine channel receivers.
+- GNU Radio already provides mature blocks for translating filters, NFM demodulation, squelch, metering, resampling, and WAV/file sinks.
+- The future recorder is a DSP flowgraph problem, not only a device-read problem.
+
+Rejected as primary backend:
+
+- Direct HackRF APIs: too device-specific and still require custom DSP.
+- SoapySDR plus custom DSP: viable, but more implementation and validation work for this use case.
+- Gqrx internals: useful as a reference, but the app should keep its own simplified recorder-focused pipeline.
 
 ## Signal Pipeline
 
 The core processing model should be:
 
 ```text
-HackRF source
+gr-osmosdr HackRF source
   -> shared IQ stream
   -> ChannelReceiver[16]
   -> FM demodulator
@@ -91,7 +111,7 @@ HackRF source
 For two channels:
 
 ```text
-HackRF source
+gr-osmosdr HackRF source
   -> shared IQ stream
   -> ChannelReceiver[16]
   -> ChannelReceiver[configured second channel]
@@ -99,8 +119,8 @@ HackRF source
 
 Each channel receiver is responsible for:
 
-- Frequency shifting from the shared center frequency to the channel offset.
-- Channel filtering.
+- Frequency shifting from the shared center frequency to the channel offset, likely with a GNU Radio translating filter.
+- Channel filtering, likely with GNU Radio filter blocks.
 - Power/signal measurement.
 - NFM demodulation.
 - Audio level measurement.
@@ -195,14 +215,14 @@ A waterfall can be added later. It is useful, but not required for the first wor
 Keep realtime receiving and GUI drawing separate:
 
 ```text
-SDR thread
-  reads IQ samples from HackRF/SoapySDR
+GNU Radio runtime thread(s)
+  read IQ samples from HackRF through gr-osmosdr
+  run the DSP flowgraph
 
-DSP thread
-  distributes IQ blocks to channel receivers
-  demodulates audio
-  computes power/spectrum/squelch state
-  writes audio to recorders
+GUI bridge / controller
+  starts/stops flowgraphs
+  receives reduced-rate level/spectrum/status messages
+  updates recording state
 
 GUI thread
   handles user input
@@ -310,7 +330,7 @@ This supports a playback interface where all unsquelched channel activity appear
 ## Milestones
 
 1. Create standalone project structure with shared core library and recorder GUI target.
-2. Open HackRF through SoapySDR and stream IQ samples.
+2. Open HackRF through GNU Radio/gr-osmosdr and stream IQ samples.
 3. Tune around Channel 16 and compute basic IQ power.
 4. Implement `ChannelReceiver` for one configured channel.
 5. Add NFM demodulation and audio resampling.
@@ -336,9 +356,8 @@ These are valid later features, but they should not block the first Channel 16 r
 
 ## Open Decisions
 
-- Exact DSP implementation: liquid-dsp vs focused internal DSP.
+- Exact GNU Radio channel receiver chain and intermediate sample rates.
 - Initial audio sample rate: 16 kHz vs 48 kHz.
 - Initial second channel choice.
 - Whether first recording mode is always-continuous or optionally squelch-gated.
 - Whether recorder and playback live in one process later or remain separate applications.
-
