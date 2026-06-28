@@ -11,7 +11,7 @@
 #include <memory>
 #include <vector>
 
-namespace marine {
+namespace zapiska {
 
 class IqFftSink final : public gr::sync_block
 {
@@ -51,4 +51,4 @@ private:
     Callback callback;
 };
 
-} // namespace marine
+} // namespace zapiska

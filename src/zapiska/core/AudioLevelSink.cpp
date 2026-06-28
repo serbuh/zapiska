@@ -1,13 +1,12 @@
-#include "IqPowerSink.h"
+#include "AudioLevelSink.h"
 
-#include <gnuradio/gr_complex.h>
 #include <gnuradio/io_signature.h>
 
 #include <algorithm>
 #include <cmath>
 #include <utility>
 
-namespace marine {
+namespace zapiska {
 
 namespace {
 
@@ -15,21 +14,21 @@ constexpr double MinimumPower = 1.0e-20;
 
 } // namespace
 
-IqPowerSink::sptr IqPowerSink::make(quint64 reportIntervalSamples, Callback callback)
+AudioLevelSink::sptr AudioLevelSink::make(quint64 reportIntervalSamples, Callback callback)
 {
-    return sptr(new IqPowerSink(std::max<quint64>(1, reportIntervalSamples), std::move(callback)));
+    return sptr(new AudioLevelSink(std::max<quint64>(1, reportIntervalSamples), std::move(callback)));
 }
 
-IqPowerSink::IqPowerSink(quint64 reportIntervalSamples, Callback callback)
-    : gr::sync_block("zapiska_iq_power_sink",
-        gr::io_signature::make(1, 1, sizeof(gr_complex)),
+AudioLevelSink::AudioLevelSink(quint64 reportIntervalSamples, Callback callback)
+    : gr::sync_block("zapiska_audio_level_sink",
+        gr::io_signature::make(1, 1, sizeof(float)),
         gr::io_signature::make(0, 0, 0))
     , reportIntervalSamples(reportIntervalSamples)
     , callback(std::move(callback))
 {
 }
 
-int IqPowerSink::work(int noutputItems,
+int AudioLevelSink::work(int noutputItems,
     gr_vector_const_void_star &inputItems,
     gr_vector_void_star &outputItems)
 {
@@ -39,12 +38,11 @@ int IqPowerSink::work(int noutputItems,
         return noutputItems;
     }
 
-    const auto *samples = static_cast<const gr_complex *>(inputItems[0]);
+    const auto *samples = static_cast<const float *>(inputItems[0]);
     double powerSum = 0.0;
     for (int i = 0; i < noutputItems; ++i) {
-        const double real = samples[i].real();
-        const double imag = samples[i].imag();
-        powerSum += real * real + imag * imag;
+        const double sample = samples[i];
+        powerSum += sample * sample;
     }
 
     const auto sampleCount = static_cast<quint64>(noutputItems);
@@ -54,9 +52,9 @@ int IqPowerSink::work(int noutputItems,
 
     if (windowSamples >= reportIntervalSamples) {
         const double meanPower = windowPowerSum / static_cast<double>(windowSamples);
-        IqPowerUpdate update;
+        AudioLevelUpdate update;
         update.samplesRead = totalSamples;
-        update.powerDbfs = 10.0 * std::log10(std::max(meanPower, MinimumPower));
+        update.levelDbfs = 10.0 * std::log10(std::max(meanPower, MinimumPower));
 
         if (callback) {
             callback(update);
@@ -69,4 +67,4 @@ int IqPowerSink::work(int noutputItems,
     return noutputItems;
 }
 
-} // namespace marine
+} // namespace zapiska

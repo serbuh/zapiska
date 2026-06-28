@@ -1,6 +1,6 @@
 #include "MainWindow.h"
 
-#include "MarineCore.h"
+#include "ChannelCatalog.h"
 #include "WaterfallWidget.h"
 
 #include <QAbstractItemView>
@@ -53,7 +53,7 @@ QString formatSampleCount(quint64 samplesRead)
     return QLocale::c().toString(samplesRead);
 }
 
-QString formatWidebandPower(const marine::SdrStreamStats &stats)
+QString formatWidebandPower(const zapiska::SdrStreamStats &stats)
 {
     if (!stats.hasWidebandPower) {
         return QStringLiteral("waiting");
@@ -62,7 +62,7 @@ QString formatWidebandPower(const marine::SdrStreamStats &stats)
     return QLocale::c().toString(stats.widebandPowerDbfs, 'f', 1) + QStringLiteral(" dBFS");
 }
 
-QString formatChannelPower(const marine::SdrChannelStats &stats)
+QString formatChannelPower(const zapiska::SdrChannelStats &stats)
 {
     if (!stats.hasPower) {
         return QStringLiteral("waiting");
@@ -71,7 +71,7 @@ QString formatChannelPower(const marine::SdrChannelStats &stats)
     return QLocale::c().toString(stats.powerDbfs, 'f', 1) + QStringLiteral(" dBFS");
 }
 
-QString formatAudioLevel(const marine::SdrChannelStats &stats)
+QString formatAudioLevel(const zapiska::SdrChannelStats &stats)
 {
     if (!stats.hasAudioLevel) {
         return QStringLiteral("waiting");
@@ -80,12 +80,12 @@ QString formatAudioLevel(const marine::SdrChannelStats &stats)
     return QLocale::c().toString(stats.audioLevelDbfs, 'f', 1) + QStringLiteral(" dBFS");
 }
 
-QString formatSquelchState(const marine::SdrChannelStats &stats)
+QString formatSquelchState(const zapiska::SdrChannelStats &stats)
 {
-    if (stats.squelchMode == marine::SdrSquelchMode::ForcedOpen) {
+    if (stats.squelchMode == zapiska::SdrSquelchMode::ForcedOpen) {
         return QStringLiteral("open");
     }
-    if (stats.squelchMode == marine::SdrSquelchMode::ForcedClosed) {
+    if (stats.squelchMode == zapiska::SdrSquelchMode::ForcedClosed) {
         return QStringLiteral("muted");
     }
     if (!stats.hasSquelch) {
@@ -95,9 +95,9 @@ QString formatSquelchState(const marine::SdrChannelStats &stats)
     return stats.squelchOpen ? QStringLiteral("open") : QStringLiteral("squelched");
 }
 
-marine::SdrSquelchMode squelchModeFromCombo(const QComboBox *combo)
+zapiska::SdrSquelchMode squelchModeFromCombo(const QComboBox *combo)
 {
-    return static_cast<marine::SdrSquelchMode>(combo->currentData().toInt());
+    return static_cast<zapiska::SdrSquelchMode>(combo->currentData().toInt());
 }
 
 int meterValue(double value, double minimum, double maximum)
@@ -114,10 +114,10 @@ MainWindow::MainWindow(QWidget *parent)
     , sdrSource(this)
 {
     buildUi();
-    connect(&sdrSource, &marine::SdrSource::stateChanged, this, &MainWindow::handleSdrStateChanged);
-    connect(&sdrSource, &marine::SdrSource::spectrumUpdated, this, &MainWindow::handleSpectrumUpdated);
-    connect(&sdrSource, &marine::SdrSource::statsUpdated, this, &MainWindow::handleSdrStatsUpdated);
-    connect(&sdrSource, &marine::SdrSource::errorOccurred, this, &MainWindow::handleSdrError);
+    connect(&sdrSource, &zapiska::SdrSource::stateChanged, this, &MainWindow::handleSdrStateChanged);
+    connect(&sdrSource, &zapiska::SdrSource::spectrumUpdated, this, &MainWindow::handleSpectrumUpdated);
+    connect(&sdrSource, &zapiska::SdrSource::statsUpdated, this, &MainWindow::handleSdrStatsUpdated);
+    connect(&sdrSource, &zapiska::SdrSource::errorOccurred, this, &MainWindow::handleSdrError);
     handleSdrStateChanged(sdrSource.state());
     handleSdrStatsUpdated(sdrSource.stats());
     loadChannels();
@@ -146,7 +146,7 @@ void MainWindow::buildUi()
     centerFrequencySpin->setSingleStep(0.025);
     centerFrequencySpin->setSuffix(tr(" MHz"));
     centerFrequencySpin->setKeyboardTracking(false);
-    centerFrequencySpin->setValue(static_cast<double>(marine::DefaultSdrCenterFrequencyHz) / 1000000.0);
+    centerFrequencySpin->setValue(static_cast<double>(zapiska::DefaultSdrCenterFrequencyHz) / 1000000.0);
 
     sampleRateCombo = new QComboBox(sdrMetrics);
     sampleRateCombo->addItem(tr("2M"), 2000000);
@@ -155,7 +155,7 @@ void MainWindow::buildUi()
     sampleRateCombo->addItem(tr("10M"), 10000000);
     sampleRateCombo->addItem(tr("12.5M"), 12500000);
     sampleRateCombo->addItem(tr("20M"), 20000000);
-    const int defaultSampleRateIndex = sampleRateCombo->findData(marine::DefaultSdrSampleRateHz);
+    const int defaultSampleRateIndex = sampleRateCombo->findData(zapiska::DefaultSdrSampleRateHz);
     if (defaultSampleRateIndex >= 0) {
         sampleRateCombo->setCurrentIndex(defaultSampleRateIndex);
     }
@@ -246,14 +246,14 @@ void MainWindow::buildUi()
 
 void MainWindow::loadChannels()
 {
-    const QString path = marine::defaultChannelConfigPath();
+    const QString path = zapiska::defaultChannelCatalogPath();
     QString errorMessage;
-    channelCatalog = marine::loadChannelsFromFile(path, &errorMessage);
+    channelCatalog = zapiska::loadChannelCatalogFromFile(path, &errorMessage);
     selectedChannelIds.clear();
 
     if (channelCatalog.isEmpty()) {
-        channelCatalog = marine::defaultChannels();
-        sdrStatusLabel->setText(tr("Channels: fallback (%1)").arg(errorMessage));
+        channelCatalog = zapiska::defaultChannelCatalog();
+        sdrStatusLabel->setText(tr("Channels: default catalog (%1)").arg(errorMessage));
     }
 
     initializeSelectedChannels();
@@ -367,7 +367,7 @@ void MainWindow::refreshChannelTable()
         channelTable->setItem(row, SelectedColumn, selectedItem);
 
         channelTable->setItem(row, ChannelNameColumn, new QTableWidgetItem(channel.name));
-        channelTable->setItem(row, FrequencyColumn, new QTableWidgetItem(marine::formatFrequencyMHz(channel.frequencyHz)));
+        channelTable->setItem(row, FrequencyColumn, new QTableWidgetItem(zapiska::formatFrequencyMHz(channel.frequencyHz)));
         channelTable->setItem(row, ModeColumn, new QTableWidgetItem(channel.mode.toUpper()));
         channelTable->setItem(row, BandwidthColumn, new QTableWidgetItem(QString::number(channel.bandwidthHz) + tr(" Hz")));
 
@@ -392,9 +392,9 @@ void MainWindow::refreshChannelTable()
         channelTable->setCellWidget(row, MonitorColumn, rowMonitorButton);
 
         auto *squelchMode = new QComboBox(channelTable);
-        squelchMode->addItem(tr("Auto"), static_cast<int>(marine::SdrSquelchMode::Automatic));
-        squelchMode->addItem(tr("Open"), static_cast<int>(marine::SdrSquelchMode::ForcedOpen));
-        squelchMode->addItem(tr("Muted"), static_cast<int>(marine::SdrSquelchMode::ForcedClosed));
+        squelchMode->addItem(tr("Auto"), static_cast<int>(zapiska::SdrSquelchMode::Automatic));
+        squelchMode->addItem(tr("Open"), static_cast<int>(zapiska::SdrSquelchMode::ForcedOpen));
+        squelchMode->addItem(tr("Muted"), static_cast<int>(zapiska::SdrSquelchMode::ForcedClosed));
         squelchMode->setCurrentIndex(static_cast<int>(squelchModeForChannel(channel.id)));
         connect(
             squelchMode,
@@ -467,8 +467,8 @@ void MainWindow::updateChannelSelectionControls()
 {
     const QSignalBlocker blocker(channelTable);
     const auto state = sdrSource.state();
-    const bool canChangeSelection = state == marine::SdrSourceState::Closed
-        || state == marine::SdrSourceState::Error;
+    const bool canChangeSelection = state == zapiska::SdrSourceState::Closed
+        || state == zapiska::SdrSourceState::Error;
 
     for (int row = 0; row < channelTable->rowCount(); ++row) {
         auto *selectedItem = channelTable->item(row, SelectedColumn);
@@ -520,7 +520,7 @@ int MainWindow::selectedChannelCount() const
 void MainWindow::toggleSdrConnection()
 {
     const auto state = sdrSource.state();
-    if (state == marine::SdrSourceState::Open || state == marine::SdrSourceState::Streaming) {
+    if (state == zapiska::SdrSourceState::Open || state == zapiska::SdrSourceState::Streaming) {
         sdrSource.close();
         sdrStatusLabel->setText(tr("SDR: disconnected"));
         statusBar()->showMessage(tr("SDR disconnected"), 3000);
@@ -530,7 +530,7 @@ void MainWindow::toggleSdrConnection()
 
     sdrStatusLabel->setText(tr("SDR: connecting"));
     QString errorMessage;
-    const marine::SdrSourceConfig config = buildSdrConfig();
+    const zapiska::SdrSourceConfig config = buildSdrConfig();
     if (!sdrSource.open(config, &errorMessage)) {
         handleSdrError(errorMessage);
         refreshSdrControls();
@@ -550,7 +550,7 @@ void MainWindow::toggleSdrConnection()
 
 void MainWindow::toggleSdrStreaming()
 {
-    if (sdrSource.state() == marine::SdrSourceState::Streaming) {
+    if (sdrSource.state() == zapiska::SdrSourceState::Streaming) {
         stopSdr();
         return;
     }
@@ -602,7 +602,7 @@ void MainWindow::toggleLiveAudio()
 bool MainWindow::applyLiveAudioDesiredState()
 {
     const auto state = sdrSource.state();
-    if (state != marine::SdrSourceState::Open && state != marine::SdrSourceState::Streaming) {
+    if (state != zapiska::SdrSourceState::Open && state != zapiska::SdrSourceState::Streaming) {
         return true;
     }
 
@@ -639,15 +639,15 @@ void MainWindow::toggleRecording()
     refreshSdrControls();
 }
 
-void MainWindow::handleSdrStateChanged(marine::SdrSourceState state)
+void MainWindow::handleSdrStateChanged(zapiska::SdrSourceState state)
 {
-    if (state == marine::SdrSourceState::Open || state == marine::SdrSourceState::Streaming) {
+    if (state == zapiska::SdrSourceState::Open || state == zapiska::SdrSourceState::Streaming) {
         updateSdrTuningControls(sdrSource.config());
     }
     refreshSdrControls();
 }
 
-void MainWindow::handleSdrStatsUpdated(const marine::SdrStreamStats &stats)
+void MainWindow::handleSdrStatsUpdated(const zapiska::SdrStreamStats &stats)
 {
     sampleCountLabel->setText(tr("Samples: %1").arg(formatSampleCount(stats.samplesRead)));
     widebandPowerLabel->setText(tr("Power: %1").arg(formatWidebandPower(stats)));
@@ -659,7 +659,7 @@ void MainWindow::handleSdrStatsUpdated(const marine::SdrStreamStats &stats)
     }
 }
 
-void MainWindow::handleSpectrumUpdated(const marine::SdrSpectrumFrame &frame)
+void MainWindow::handleSpectrumUpdated(const zapiska::SdrSpectrumFrame &frame)
 {
     if (!fftVisible) {
         return;
@@ -681,16 +681,16 @@ void MainWindow::handleSdrError(const QString &message)
 void MainWindow::refreshSdrControls()
 {
     const auto state = sdrSource.state();
-    const bool isOpen = state == marine::SdrSourceState::Open
-        || state == marine::SdrSourceState::Streaming;
-    const bool isStreaming = state == marine::SdrSourceState::Streaming;
-    const marine::SdrStreamStats stats = sdrSource.stats();
+    const bool isOpen = state == zapiska::SdrSourceState::Open
+        || state == zapiska::SdrSourceState::Streaming;
+    const bool isStreaming = state == zapiska::SdrSourceState::Streaming;
+    const zapiska::SdrStreamStats stats = sdrSource.stats();
     const bool recording = stats.recording;
 
     connectButton->setText(isOpen ? tr("Disconnect") : tr("Connect"));
     connectButton->setEnabled(true);
     startButton->setText(isStreaming ? tr("Stop") : tr("Start"));
-    startButton->setEnabled(state == marine::SdrSourceState::Open || isStreaming);
+    startButton->setEnabled(state == zapiska::SdrSourceState::Open || isStreaming);
     monitorButton->setText(liveAudioDesired ? tr("Playing") : tr("Muted"));
     monitorButton->setEnabled(isOpen);
     recordButton->setText(recording ? tr("Stop Rec") : tr("Record"));
@@ -701,7 +701,7 @@ void MainWindow::refreshSdrControls()
     updateChannelSelectionControls();
 }
 
-void MainWindow::updateSdrTuningControls(const marine::SdrSourceConfig &config)
+void MainWindow::updateSdrTuningControls(const zapiska::SdrSourceConfig &config)
 {
     const QSignalBlocker centerBlocker(centerFrequencySpin);
     centerFrequencySpin->setValue(static_cast<double>(config.centerFrequencyHz) / 1000000.0);
@@ -713,13 +713,13 @@ void MainWindow::updateSdrTuningControls(const marine::SdrSourceConfig &config)
     }
 }
 
-marine::SdrSourceConfig MainWindow::buildSdrConfig() const
+zapiska::SdrSourceConfig MainWindow::buildSdrConfig() const
 {
-    marine::SdrSourceConfig config;
+    zapiska::SdrSourceConfig config;
     config.centerFrequencyHz = static_cast<qint64>(std::llround(centerFrequencySpin->value() * 1000000.0));
     config.sampleRateHz = sampleRateCombo->currentData().isValid()
         ? sampleRateCombo->currentData().toInt()
-        : marine::DefaultSdrSampleRateHz;
+        : zapiska::DefaultSdrSampleRateHz;
     config.channels.reserve(selectedChannelCount());
 
     for (const auto &channel : channelCatalog) {
@@ -727,7 +727,7 @@ marine::SdrSourceConfig MainWindow::buildSdrConfig() const
             continue;
         }
 
-        marine::SdrChannelConfig sdrChannel;
+        zapiska::SdrChannelConfig sdrChannel;
         sdrChannel.id = channel.id;
         sdrChannel.name = channel.name;
         sdrChannel.frequencyHz = channel.frequencyHz;
@@ -742,7 +742,7 @@ marine::SdrSourceConfig MainWindow::buildSdrConfig() const
     return config;
 }
 
-void MainWindow::updateChannelMeters(const marine::SdrStreamStats &streamStats)
+void MainWindow::updateChannelMeters(const zapiska::SdrStreamStats &streamStats)
 {
     for (const auto &stats : streamStats.channelStats) {
         if (!isChannelSelected(stats.id)) {
@@ -837,7 +837,7 @@ int MainWindow::channelRow(const QString &id) const
     return -1;
 }
 
-bool MainWindow::channelHasRecordableAudio(const marine::SdrStreamStats &stats, const QString &id) const
+bool MainWindow::channelHasRecordableAudio(const zapiska::SdrStreamStats &stats, const QString &id) const
 {
     for (const auto &channelStats : stats.channelStats) {
         if (channelStats.id == id && channelStats.audioSampleRateHz > 0) {
@@ -856,12 +856,12 @@ QString MainWindow::nextRecordingPath() const
     }
 
     const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss"));
-    return QDir(basePath).filePath(QStringLiteral("Zapiska/marine_ch16_%1.wav").arg(timestamp));
+    return QDir(basePath).filePath(QStringLiteral("Zapiska/recording_%1.wav").arg(timestamp));
 }
 
-marine::SdrSquelchMode MainWindow::squelchModeForChannel(const QString &id) const
+zapiska::SdrSquelchMode MainWindow::squelchModeForChannel(const QString &id) const
 {
-    return channelSquelchModes.value(id, marine::SdrSquelchMode::Automatic);
+    return channelSquelchModes.value(id, zapiska::SdrSquelchMode::Automatic);
 }
 
 double MainWindow::squelchThresholdForChannel(const QString &id) const
@@ -888,7 +888,7 @@ void MainWindow::applyChannelSquelch(const QString &id)
     channelSquelchThresholds.insert(id, threshold);
 
     const auto state = sdrSource.state();
-    if (state != marine::SdrSourceState::Open && state != marine::SdrSourceState::Streaming) {
+    if (state != zapiska::SdrSourceState::Open && state != zapiska::SdrSourceState::Streaming) {
         return;
     }
 
@@ -916,7 +916,7 @@ void MainWindow::handleChannelItemChanged(QTableWidgetItem *item)
     }
 
     const auto state = sdrSource.state();
-    if (state != marine::SdrSourceState::Closed && state != marine::SdrSourceState::Error) {
+    if (state != zapiska::SdrSourceState::Closed && state != zapiska::SdrSourceState::Error) {
         const QSignalBlocker blocker(channelTable);
         item->setCheckState(currentlySelected ? Qt::Checked : Qt::Unchecked);
         statusBar()->showMessage(tr("Channel selection is locked while the SDR is connected"), 3000);
@@ -958,7 +958,7 @@ void MainWindow::toggleChannelMonitor(const QString &id)
     }
 
     const auto state = sdrSource.state();
-    if (state == marine::SdrSourceState::Open || state == marine::SdrSourceState::Streaming) {
+    if (state == zapiska::SdrSourceState::Open || state == zapiska::SdrSourceState::Streaming) {
         QString errorMessage;
         if (!sdrSource.setChannelMonitorEnabled(id, nextEnabled, &errorMessage)) {
             if (previousEnabled) {

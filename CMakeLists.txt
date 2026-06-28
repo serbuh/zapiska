@@ -18,5 +18,4 @@ else()
     set(ZAPISKA_QT_PACKAGE Qt5)
 endif()
 
-add_subdirectory(src/marine)
-
+add_subdirectory(src/zapiska)

@@ -85,11 +85,11 @@ quint32 wavDataBytes(const QString &path)
     return 0;
 }
 
-bool runManualSquelchCheck(marine::GrOsmoSdrSource &source, QString *error)
+bool runManualSquelchCheck(zapiska::GrOsmoSdrSource &source, QString *error)
 {
     if (!source.setChannelSquelch(
             QStringLiteral("16"),
-            marine::SdrSquelchMode::ForcedOpen,
+            zapiska::SdrSquelchMode::ForcedOpen,
             -70.0,
             error)) {
         qCritical() << "manual squelch check failed: force-open rejected:" << *error;
@@ -98,7 +98,7 @@ bool runManualSquelchCheck(marine::GrOsmoSdrSource &source, QString *error)
 
     auto stats = source.stats();
     if (stats.channelStats.isEmpty()
-        || stats.channelStats.first().squelchMode != marine::SdrSquelchMode::ForcedOpen
+        || stats.channelStats.first().squelchMode != zapiska::SdrSquelchMode::ForcedOpen
         || !stats.channelStats.first().hasSquelch
         || !stats.channelStats.first().squelchOpen
         || stats.channelStats.first().squelchThresholdDbfs != -70.0) {
@@ -108,7 +108,7 @@ bool runManualSquelchCheck(marine::GrOsmoSdrSource &source, QString *error)
 
     if (!source.setChannelSquelch(
             QStringLiteral("16"),
-            marine::SdrSquelchMode::ForcedClosed,
+            zapiska::SdrSquelchMode::ForcedClosed,
             -55.5,
             error)) {
         qCritical() << "manual squelch check failed: force-muted rejected:" << *error;
@@ -117,7 +117,7 @@ bool runManualSquelchCheck(marine::GrOsmoSdrSource &source, QString *error)
 
     stats = source.stats();
     if (stats.channelStats.isEmpty()
-        || stats.channelStats.first().squelchMode != marine::SdrSquelchMode::ForcedClosed
+        || stats.channelStats.first().squelchMode != zapiska::SdrSquelchMode::ForcedClosed
         || !stats.channelStats.first().hasSquelch
         || stats.channelStats.first().squelchOpen
         || stats.channelStats.first().squelchThresholdDbfs != -55.5) {
@@ -127,7 +127,7 @@ bool runManualSquelchCheck(marine::GrOsmoSdrSource &source, QString *error)
 
     if (!source.setChannelSquelch(
             QStringLiteral("16"),
-            marine::SdrSquelchMode::Automatic,
+            zapiska::SdrSquelchMode::Automatic,
             -45.0,
             error)) {
         qCritical() << "manual squelch check failed: auto restore rejected:" << *error;
@@ -166,13 +166,13 @@ int main(int argc, char *argv[])
         recordingPath = recordingDir.filePath(QStringLiteral("channel16.wav"));
     }
 
-    marine::GrOsmoSdrSource source;
+    zapiska::GrOsmoSdrSource source;
     std::atomic<int> spectrumFrames { 0 };
     QObject::connect(
         &source,
-        &marine::SdrSource::spectrumUpdated,
+        &zapiska::SdrSource::spectrumUpdated,
         &source,
-        [&spectrumFrames](const marine::SdrSpectrumFrame &frame) {
+        [&spectrumFrames](const zapiska::SdrSpectrumFrame &frame) {
             if (!frame.powerDbfs.isEmpty()) {
                 ++spectrumFrames;
             }
@@ -188,7 +188,7 @@ int main(int argc, char *argv[])
         qInfo() << "discovered devices:" << devices.size();
     }
 
-    marine::SdrSourceConfig config;
+    zapiska::SdrSourceConfig config;
     config.deviceArgs = deviceArgs;
     config.centerFrequencyHz = 156800000;
     config.sampleRateHz = intValueAfter(args, QStringLiteral("--sample-rate"), 96000);
@@ -239,7 +239,7 @@ int main(int argc, char *argv[])
     }
 
     source.stop();
-    const marine::SdrStreamStats finalStats = source.stats();
+    const zapiska::SdrStreamStats finalStats = source.stats();
     source.close();
 
     qInfo() << "samples read:" << finalStats.samplesRead

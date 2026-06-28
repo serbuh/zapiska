@@ -22,7 +22,7 @@ public:
 
     QSize minimumSizeHint() const override;
     void setChannelMarkers(const QVector<WaterfallChannelMarker> &markers);
-    void setSpectrumFrame(const marine::SdrSpectrumFrame &frame);
+    void setSpectrumFrame(const zapiska::SdrSpectrumFrame &frame);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -32,7 +32,7 @@ private:
     int xForFrequency(qint64 frequencyHz, int width) const;
 
     QVector<WaterfallChannelMarker> channelMarkers;
-    marine::SdrSpectrumFrame latestFrame;
+    zapiska::SdrSpectrumFrame latestFrame;
     QImage waterfallImage;
     bool hasFrame = false;
 };

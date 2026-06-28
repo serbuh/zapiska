@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-namespace marine {
+namespace zapiska {
 
 namespace {
 
@@ -85,7 +85,7 @@ QVector<SdrChannelConfig> defaultChannelConfigs()
     SdrChannelConfig channel;
     channel.id = QStringLiteral("16");
     channel.name = QStringLiteral("Marine Channel 16");
-    channel.frequencyHz = MarineChannel16FrequencyHz;
+    channel.frequencyHz = DefaultChannelFrequencyHz;
     channel.bandwidthHz = 10000;
     channel.enabled = true;
     return { channel };
@@ -895,4 +895,4 @@ SdrStreamStats GrOsmoSdrSource::stats() const
     return impl->stats();
 }
 
-} // namespace marine
+} // namespace zapiska

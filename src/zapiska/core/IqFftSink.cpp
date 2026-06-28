@@ -7,7 +7,7 @@
 #include <cmath>
 #include <utility>
 
-namespace marine {
+namespace zapiska {
 
 namespace {
 
@@ -158,4 +158,4 @@ void IqFftSink::publishFrame()
     callback(frame);
 }
 
-} // namespace marine
+} // namespace zapiska

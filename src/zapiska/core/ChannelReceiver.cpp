@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 
-namespace marine {
+namespace zapiska {
 
 namespace {
 
@@ -82,7 +82,7 @@ SdrChannelConfig normalizedChannelConfig(const SdrChannelConfig &channel)
         normalized.name = QStringLiteral("Marine Channel 16");
     }
     if (normalized.frequencyHz <= 0) {
-        normalized.frequencyHz = MarineChannel16FrequencyHz;
+        normalized.frequencyHz = DefaultChannelFrequencyHz;
     }
     normalized.bandwidthHz = normalizedBandwidth(normalized.bandwidthHz);
     if (normalized.squelchThresholdDbfs > 0.0) {
@@ -257,4 +257,4 @@ SdrChannelStats ChannelReceiver::initialStats() const
     return impl->stats;
 }
 
-} // namespace marine
+} // namespace zapiska

@@ -6,11 +6,11 @@
 
 #include <complex>
 
-namespace marine {
+namespace zapiska {
 
 inline constexpr qint64 DefaultSdrCenterFrequencyHz = 158900000;
 inline constexpr int DefaultSdrSampleRateHz = 8000000;
-inline constexpr qint64 MarineChannel16FrequencyHz = 156800000;
+inline constexpr qint64 DefaultChannelFrequencyHz = 156800000;
 
 enum class SdrSourceState
 {
@@ -39,7 +39,7 @@ struct SdrChannelConfig
 {
     QString id;
     QString name;
-    qint64 frequencyHz = MarineChannel16FrequencyHz;
+    qint64 frequencyHz = DefaultChannelFrequencyHz;
     int bandwidthHz = 10000;
     double squelchThresholdDbfs = -45.0;
     SdrSquelchMode squelchMode = SdrSquelchMode::Automatic;
@@ -144,23 +144,23 @@ public:
     virtual SdrStreamStats stats() const = 0;
 
 signals:
-    void stateChanged(marine::SdrSourceState state);
-    void iqBlockReady(const marine::IqBlock &block);
-    void spectrumUpdated(const marine::SdrSpectrumFrame &frame);
-    void statsUpdated(const marine::SdrStreamStats &stats);
+    void stateChanged(zapiska::SdrSourceState state);
+    void iqBlockReady(const zapiska::IqBlock &block);
+    void spectrumUpdated(const zapiska::SdrSpectrumFrame &frame);
+    void statsUpdated(const zapiska::SdrStreamStats &stats);
     void errorOccurred(const QString &message);
 };
 
 void registerSdrSourceMetaTypes();
 
-} // namespace marine
+} // namespace zapiska
 
-Q_DECLARE_METATYPE(marine::SdrSourceState)
-Q_DECLARE_METATYPE(marine::SdrSquelchMode)
-Q_DECLARE_METATYPE(marine::SdrDeviceInfo)
-Q_DECLARE_METATYPE(marine::SdrChannelConfig)
-Q_DECLARE_METATYPE(marine::SdrSourceConfig)
-Q_DECLARE_METATYPE(marine::SdrChannelStats)
-Q_DECLARE_METATYPE(marine::SdrStreamStats)
-Q_DECLARE_METATYPE(marine::IqBlock)
-Q_DECLARE_METATYPE(marine::SdrSpectrumFrame)
+Q_DECLARE_METATYPE(zapiska::SdrSourceState)
+Q_DECLARE_METATYPE(zapiska::SdrSquelchMode)
+Q_DECLARE_METATYPE(zapiska::SdrDeviceInfo)
+Q_DECLARE_METATYPE(zapiska::SdrChannelConfig)
+Q_DECLARE_METATYPE(zapiska::SdrSourceConfig)
+Q_DECLARE_METATYPE(zapiska::SdrChannelStats)
+Q_DECLARE_METATYPE(zapiska::SdrStreamStats)
+Q_DECLARE_METATYPE(zapiska::IqBlock)
+Q_DECLARE_METATYPE(zapiska::SdrSpectrumFrame)

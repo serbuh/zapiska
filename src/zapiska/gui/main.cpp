@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     QApplication::setOrganizationName(QStringLiteral("Zapiska"));
-    QApplication::setApplicationName(QStringLiteral("Zapiska Marine Recorder"));
+    QApplication::setApplicationName(QStringLiteral("Zapiska"));
     const QIcon appIcon = noteAppIcon();
     QApplication::setWindowIcon(appIcon);
 

@@ -1,10 +1,14 @@
-# Marine Recorder Architecture
+# Zapiska SDR Recorder Architecture
 
 ## Goal
 
-Build a standalone application that uses a HackRF to monitor and record marine VHF channels.
+Build a standalone SDR application that uses a HackRF to monitor, visualize, play,
+and record configured narrowband channels.
 
-The first useful version records Marine Channel 16 and shows a simple live signal view. The design should also support enabling a second nearby channel early, then later expanding to a wider marine-band capture with multiple channel receivers, squelch-aware recording, and timeline playback.
+The first useful preset is marine VHF and the first useful recording target is
+Marine Channel 16. The design should support enabling additional nearby channels
+early, then later expanding to wider configured-channel capture with multiple
+channel receivers, squelch-aware recording, and timeline playback.
 
 This project should not depend on Gqrx internals. Gqrx is useful as a reference and manual validation tool, but the recorder should be its own application with a shared core library.
 
@@ -13,7 +17,8 @@ This project should not depend on Gqrx internals. Gqrx is useful as a reference 
 The MVP should provide:
 
 - HackRF device connection.
-- Tuning around Marine Channel 16.
+- Channel catalog loading from `data/presets/marine-vhf.json`.
+- Tuning around selected configured channels.
 - One shared IQ stream.
 - One enabled `ChannelReceiver` for Channel 16.
 - Optional config-driven second channel for display and later recording.
@@ -37,7 +42,7 @@ The second channel must be configurable rather than hardcoded. This keeps early 
 Use separate applications backed by a shared core library:
 
 ```text
-libmarine-core
+zapiska-core
   SDR device access
   IQ streaming
   channel receivers
@@ -46,13 +51,13 @@ libmarine-core
   audio recording
   metadata/index writing
 
-marine-recorder-gui
+zapiska
   connects to HackRF
   starts/stops receiving
   shows live channel signal state
   records audio
 
-marine-playback-gui
+zapiska-playback
   opens recording folders
   shows recordings and timeline data
   plays recorded audio
@@ -83,7 +88,7 @@ Zapiska should use GNU Radio and gr-osmosdr as the recorder backend.
 Decision drivers:
 
 - Gqrx already works locally with HackRF through GNU Radio and gr-osmosdr.
-- The project needs one wide IQ stream split into multiple simultaneous marine channel receivers.
+- The project needs one wide IQ stream split into multiple simultaneous channel receivers.
 - GNU Radio already provides mature blocks for translating filters, NFM demodulation, squelch, metering, resampling, and WAV/file sinks.
 - The future recorder is a DSP flowgraph problem, not only a device-read problem.
 
@@ -156,7 +161,7 @@ Second channel:         configured by user
 Second offset:          channel_frequency - center_frequency
 ```
 
-This is the same model needed later for a wider marine-band capture:
+This is the same model needed later for a wider configured-channel capture:
 
 ```text
 HackRF center frequency: selected in the GUI to cover target channels
@@ -306,7 +311,7 @@ Later playback features:
 
 ## Future Wideband Recording
 
-Later, the system should support recording a wider spectrum that contains many marine channels.
+Later, the system should support recording a wider spectrum that contains many configured channels.
 
 The likely future modes are:
 
@@ -341,7 +346,7 @@ This supports a playback interface where all unsquelched channel activity appear
 10. Add per-channel recording control.
 11. Add basic playback GUI for recorded WAV files.
 12. Add squelch-based segment recording and timeline metadata.
-13. Expand to wider marine-band capture and many channel receivers.
+13. Expand to wider configured-channel capture and many channel receivers.
 
 ## Non-Goals For The First Version
 
@@ -349,10 +354,10 @@ This supports a playback interface where all unsquelched channel activity appear
 - Waterfall-heavy interface.
 - Wideband IQ archive by default.
 - Multi-channel timeline playback.
-- Automatic marine channel database management.
+- Automatic channel preset management.
 - Network streaming.
 
-These are valid later features, but they should not block the first Channel 16 recorder.
+These are valid later features, but they should not block the first usable recorder.
 
 ## Open Decisions
 

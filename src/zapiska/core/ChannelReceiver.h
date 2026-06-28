@@ -8,7 +8,7 @@
 #include <functional>
 #include <memory>
 
-namespace marine {
+namespace zapiska {
 
 struct ChannelReceiverConfig
 {
@@ -48,4 +48,4 @@ private:
     std::unique_ptr<Impl> impl;
 };
 
-} // namespace marine
+} // namespace zapiska

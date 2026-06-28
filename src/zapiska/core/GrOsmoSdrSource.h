@@ -4,7 +4,7 @@
 
 #include <memory>
 
-namespace marine {
+namespace zapiska {
 
 class GrOsmoSdrSource : public SdrSource
 {
@@ -43,4 +43,4 @@ private:
     std::unique_ptr<Impl> impl;
 };
 
-} // namespace marine
+} // namespace zapiska

@@ -4,7 +4,7 @@
 #include <QString>
 #include <QVector>
 
-namespace marine {
+namespace zapiska {
 
 struct ChannelConfig
 {
@@ -17,12 +17,12 @@ struct ChannelConfig
     bool recordByDefault = false;
 };
 
-QVector<ChannelConfig> defaultChannels();
+QVector<ChannelConfig> defaultChannelCatalog();
 
-QVector<ChannelConfig> loadChannelsFromFile(const QString &filePath, QString *errorMessage = nullptr);
+QVector<ChannelConfig> loadChannelCatalogFromFile(const QString &filePath, QString *errorMessage = nullptr);
 
-QString defaultChannelConfigPath();
+QString defaultChannelCatalogPath();
 
 QString formatFrequencyMHz(qint64 frequencyHz);
 
-} // namespace marine
+} // namespace zapiska

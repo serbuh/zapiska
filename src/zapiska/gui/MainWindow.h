@@ -1,7 +1,7 @@
 #pragma once
 
 #include "GrOsmoSdrSource.h"
-#include "MarineCore.h"
+#include "ChannelCatalog.h"
 
 #include <QHash>
 #include <QMainWindow>
@@ -49,19 +49,19 @@ private:
     void toggleLiveAudio();
     bool applyLiveAudioDesiredState();
     void toggleRecording();
-    void handleSdrStateChanged(marine::SdrSourceState state);
-    void handleSdrStatsUpdated(const marine::SdrStreamStats &stats);
-    void handleSpectrumUpdated(const marine::SdrSpectrumFrame &frame);
+    void handleSdrStateChanged(zapiska::SdrSourceState state);
+    void handleSdrStatsUpdated(const zapiska::SdrStreamStats &stats);
+    void handleSpectrumUpdated(const zapiska::SdrSpectrumFrame &frame);
     void handleSdrError(const QString &message);
     void refreshSdrControls();
-    void updateSdrTuningControls(const marine::SdrSourceConfig &config);
-    marine::SdrSourceConfig buildSdrConfig() const;
-    void updateChannelMeters(const marine::SdrStreamStats &stats);
+    void updateSdrTuningControls(const zapiska::SdrSourceConfig &config);
+    zapiska::SdrSourceConfig buildSdrConfig() const;
+    void updateChannelMeters(const zapiska::SdrStreamStats &stats);
     void resetChannelDisplay(int row);
     int channelRow(const QString &id) const;
-    bool channelHasRecordableAudio(const marine::SdrStreamStats &stats, const QString &id) const;
+    bool channelHasRecordableAudio(const zapiska::SdrStreamStats &stats, const QString &id) const;
     QString nextRecordingPath() const;
-    marine::SdrSquelchMode squelchModeForChannel(const QString &id) const;
+    zapiska::SdrSquelchMode squelchModeForChannel(const QString &id) const;
     double squelchThresholdForChannel(const QString &id) const;
     void applyChannelSquelch(const QString &id);
 
@@ -70,7 +70,7 @@ private:
     void toggleFftVisible();
     void toggleShowSelectedOnly(bool enabled);
 
-    marine::GrOsmoSdrSource sdrSource;
+    zapiska::GrOsmoSdrSource sdrSource;
 
     QDoubleSpinBox *centerFrequencySpin = nullptr;
     QComboBox *sampleRateCombo = nullptr;
@@ -86,11 +86,11 @@ private:
     WaterfallWidget *waterfallWidget = nullptr;
     QTableWidget *channelTable = nullptr;
 
-    QHash<QString, marine::SdrSquelchMode> channelSquelchModes;
+    QHash<QString, zapiska::SdrSquelchMode> channelSquelchModes;
     QHash<QString, double> channelSquelchThresholds;
     QSet<QString> selectedChannelIds;
     QSet<QString> mutedMonitorChannelIds;
-    QVector<marine::ChannelConfig> channelCatalog;
+    QVector<zapiska::ChannelConfig> channelCatalog;
     bool showSelectedOnly = true;
     bool fftVisible = true;
     bool liveAudioDesired = true;

@@ -1,4 +1,4 @@
-#include "MarineCore.h"
+#include "ChannelCatalog.h"
 
 #include "SdrSource.h"
 
@@ -12,7 +12,7 @@
 #include <QJsonValue>
 #include <QLocale>
 
-namespace marine {
+namespace zapiska {
 
 namespace {
 
@@ -48,13 +48,13 @@ QString fallbackMode(const QString &mode, const QString &modulation)
 
 } // namespace
 
-QVector<ChannelConfig> defaultChannels()
+QVector<ChannelConfig> defaultChannelCatalog()
 {
     return {
         {
             QStringLiteral("16"),
             QStringLiteral("Marine Channel 16"),
-            MarineChannel16FrequencyHz,
+            DefaultChannelFrequencyHz,
             QStringLiteral("nfm"),
             10000,
             true,
@@ -63,7 +63,7 @@ QVector<ChannelConfig> defaultChannels()
     };
 }
 
-QVector<ChannelConfig> loadChannelsFromFile(const QString &filePath, QString *errorMessage)
+QVector<ChannelConfig> loadChannelCatalogFromFile(const QString &filePath, QString *errorMessage)
 {
     if (errorMessage) {
         errorMessage->clear();
@@ -134,12 +134,12 @@ QVector<ChannelConfig> loadChannelsFromFile(const QString &filePath, QString *er
     return channels;
 }
 
-QString defaultChannelConfigPath()
+QString defaultChannelCatalogPath()
 {
     const QString appDir = QCoreApplication::applicationDirPath();
     const QStringList candidates = {
-        QDir(appDir).filePath(QStringLiteral("data/marine_channels.json")),
-        QDir::current().filePath(QStringLiteral("data/marine_channels.json")),
+        QDir(appDir).filePath(QStringLiteral("data/presets/marine-vhf.json")),
+        QDir::current().filePath(QStringLiteral("data/presets/marine-vhf.json")),
     };
 
     for (const auto &candidate : candidates) {
@@ -157,4 +157,4 @@ QString formatFrequencyMHz(qint64 frequencyHz)
     return QLocale::c().toString(mhz, 'f', 3) + QStringLiteral(" MHz");
 }
 
-} // namespace marine
+} // namespace zapiska

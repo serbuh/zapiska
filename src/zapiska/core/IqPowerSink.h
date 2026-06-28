@@ -7,24 +7,24 @@
 #include <functional>
 #include <memory>
 
-namespace marine {
+namespace zapiska {
 
-struct AudioLevelUpdate
+struct IqPowerUpdate
 {
     quint64 samplesRead = 0;
-    double levelDbfs = -200.0;
+    double powerDbfs = -200.0;
 };
 
-class AudioLevelSink final : public gr::sync_block
+class IqPowerSink final : public gr::sync_block
 {
 public:
-    using sptr = std::shared_ptr<AudioLevelSink>;
-    using Callback = std::function<void(const AudioLevelUpdate &update)>;
+    using sptr = std::shared_ptr<IqPowerSink>;
+    using Callback = std::function<void(const IqPowerUpdate &update)>;
 
     static sptr make(quint64 reportIntervalSamples, Callback callback);
 
 private:
-    AudioLevelSink(quint64 reportIntervalSamples, Callback callback);
+    IqPowerSink(quint64 reportIntervalSamples, Callback callback);
 
     int work(int noutputItems,
         gr_vector_const_void_star &inputItems,
@@ -37,4 +37,4 @@ private:
     Callback callback;
 };
 
-} // namespace marine
+} // namespace zapiska

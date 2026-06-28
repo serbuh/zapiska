@@ -1,14 +1,14 @@
 # Implementation Plan
 
-This document tracks the current implementation state for Zapiska's marine recorder.
+This document tracks the current implementation state for Zapiska's SDR recorder.
 
 ## Done
 
 - Added the architecture plan in `docs/Arch.md`.
-- Exported marine channels from Gqrx bookmarks to `data/marine_channels.json`.
+- Exported marine channels from Gqrx bookmarks to `data/presets/marine-vhf.json`.
 - Created the initial standalone CMake project.
-- Added `marine-core` as the shared library target.
-- Added `marine-recorder-gui` as the first GUI executable target.
+- Added `zapiska-core` as the shared library target.
+- Added `zapiska` as the first GUI executable target.
 - Added a minimal recorder window with:
   - disconnected device state,
   - default center frequency display,
@@ -17,14 +17,14 @@ This document tracks the current implementation state for Zapiska's marine recor
   - Channel 16 row,
   - placeholder signal meter,
   - placeholder squelch and recording state.
-- Added channel catalog loading from `data/marine_channels.json`.
-- Added a post-build copy of `data/marine_channels.json` next to `marine-recorder-gui`.
+- Added channel catalog loading from `data/presets/marine-vhf.json`.
+- Added a post-build copy of `data/presets/marine-vhf.json` next to `zapiska`.
 - Updated the recorder GUI to show loaded/enabled channel counts.
 - Added runtime channel selection controls:
   - catalog channel picker,
   - add selected channel,
   - remove selected visible channel.
-- Added the `SdrSource` interface in `marine-core`.
+- Added the `SdrSource` interface in `zapiska-core`.
 - Added SDR core data types for:
   - device discovery,
   - source configuration,
@@ -38,13 +38,13 @@ This document tracks the current implementation state for Zapiska's marine recor
   - `osmosdr::source`,
   - Zapiska `IqPowerSink`,
   - open/start/stop/close.
-- Added `marine-sdr-smoke`, a console smoke test for the SDR backend lifecycle.
+- Added `zapiska-sdr-smoke`, a console smoke test for the SDR backend lifecycle.
 - Added `IqPowerSink`, a small GNU Radio sink that:
   - consumes complex IQ samples,
   - counts total samples read,
   - computes reduced-rate wideband power in dBFS,
   - emits throttled stats updates through `SdrStreamStats`.
-- Extended `marine-sdr-smoke` to fail if the flowgraph does not produce samples or a power update.
+- Extended `zapiska-sdr-smoke` to fail if the flowgraph does not produce samples or a power update.
 - Wired the recorder GUI to `GrOsmoSdrSource` with Connect, Start, Stop, and Disconnect controls.
 - Added recorder GUI display for:
   - SDR backend state,
@@ -60,7 +60,7 @@ This document tracks the current implementation state for Zapiska's marine recor
   - measures reduced-rate channel power with `IqPowerSink`.
 - Added channel configuration and channel power stats to `SdrSourceConfig`/`SdrStreamStats`.
 - Wired the recorder GUI signal meter to live Channel 16 power.
-- Extended `marine-sdr-smoke` to fail if channel power is not produced.
+- Extended `zapiska-sdr-smoke` to fail if channel power is not produced.
 - Added `AudioLevelSink`, a GNU Radio sink that consumes demodulated float audio and emits reduced-rate audio levels.
 - Added an NFM demodulation branch to `ChannelReceiver`:
   - filtered channel IQ,
@@ -68,26 +68,26 @@ This document tracks the current implementation state for Zapiska's marine recor
   - audio sample counting,
   - audio level in dBFS.
 - Wired the recorder GUI audio meter to live Channel 16 audio level.
-- Extended `marine-sdr-smoke` to fail if demodulated audio samples or audio-level updates are not produced.
+- Extended `zapiska-sdr-smoke` to fail if demodulated audio samples or audio-level updates are not produced.
 - Added live audio monitoring:
   - `SdrSource` live-audio enable/disable API,
   - GNU Radio audio sink backend,
   - per-channel audio gains,
   - mixed playback of all active channel receivers,
   - recorder GUI Monitor/Mute control.
-- Extended `marine-sdr-smoke` with `--live-audio` for explicit monitor-path checks.
+- Extended `zapiska-sdr-smoke` with `--live-audio` for explicit monitor-path checks.
 - Added audio-level squelch:
   - default per-channel threshold,
   - open/squelched channel state,
   - GUI squelch state display,
   - live monitor muting for squelched channels.
-- Extended `marine-sdr-smoke` to fail if squelch state is not produced.
+- Extended `zapiska-sdr-smoke` to fail if squelch state is not produced.
 - Added manual per-channel squelch controls:
   - automatic/open/muted mode in the channel table,
   - editable squelch threshold in dBFS,
   - runtime `SdrSource::setChannelSquelch` updates for active receivers,
   - immediate live monitor gain refresh when a channel is forced open or muted.
-- Extended `marine-sdr-smoke` with `--manual-squelch-check` to verify forced-open,
+- Extended `zapiska-sdr-smoke` with `--manual-squelch-check` to verify forced-open,
   forced-muted, and threshold updates.
 - Added continuous Channel 16 WAV recording:
   - `SdrSource` start/stop recording API,
@@ -95,7 +95,7 @@ This document tracks the current implementation state for Zapiska's marine recor
   - recording state and output path in stream stats,
   - recorder GUI Record/Stop Rec toggle,
   - timestamped WAV path generation under the user's music directory.
-- Extended `marine-sdr-smoke` with `--record-wav` to verify that a WAV file is
+- Extended `zapiska-sdr-smoke` with `--record-wav` to verify that a WAV file is
   created with a non-empty audio data chunk.
 
 ## Current Step
@@ -104,7 +104,7 @@ Step 13 is complete: Channel 16 can be manually recorded to a continuous WAV fil
 while the SDR is streaming.
 
 Step 14 is reprioritized: replace the current add/remove channel picker with
-all-channel controls. Every channel from `data/marine_channels.json` should appear
+all-channel controls. Every channel from `data/presets/marine-vhf.json` should appear
 in the channel table. A `Selected` checkbox marks whether that channel is active.
 Selected channels are the only channels included in the SDR config, receiver graph,
 live monitor/playback mix, and later recording controls.
@@ -112,31 +112,31 @@ live monitor/playback mix, and later recording controls.
 ## Verification
 
 - Configured the project with CMake using `/tmp/zapiska-build`.
-- Built the `marine-recorder-gui` target successfully.
-- Built and ran `marine-sdr-smoke` against a temporary gr-osmosdr file source.
-- Verified that `marine-sdr-smoke` reports non-zero `samplesRead` and a wideband power value.
-- Rebuilt the `marine-recorder-gui` target after wiring the SDR controls.
-- Rebuilt `marine-recorder-gui` and `marine-sdr-smoke` after adding `ChannelReceiver`.
-- Verified that `marine-sdr-smoke` reports Channel 16 samples and channel power for both:
+- Built the `zapiska` target successfully.
+- Built and ran `zapiska-sdr-smoke` against a temporary gr-osmosdr file source.
+- Verified that `zapiska-sdr-smoke` reports non-zero `samplesRead` and a wideband power value.
+- Rebuilt the `zapiska` target after wiring the SDR controls.
+- Rebuilt `zapiska` and `zapiska-sdr-smoke` after adding `ChannelReceiver`.
+- Verified that `zapiska-sdr-smoke` reports Channel 16 samples and channel power for both:
   - the temporary file source,
   - the attached HackRF One.
-- Rebuilt `marine-recorder-gui` and `marine-sdr-smoke` after adding NFM demodulation.
-- Verified that `marine-sdr-smoke` reports Channel 16 audio samples and audio level for both:
+- Rebuilt `zapiska` and `zapiska-sdr-smoke` after adding NFM demodulation.
+- Verified that `zapiska-sdr-smoke` reports Channel 16 audio samples and audio level for both:
   - the temporary file source,
   - the attached HackRF One.
-- Rebuilt `marine-recorder-gui` and `marine-sdr-smoke` after adding live audio monitoring.
-- Verified that `marine-sdr-smoke --live-audio` opens the monitor path against the temporary file source.
-- Rebuilt `marine-recorder-gui` and `marine-sdr-smoke` after adding squelch state.
-- Verified that `marine-sdr-smoke` reports squelch state for both:
+- Rebuilt `zapiska` and `zapiska-sdr-smoke` after adding live audio monitoring.
+- Verified that `zapiska-sdr-smoke --live-audio` opens the monitor path against the temporary file source.
+- Rebuilt `zapiska` and `zapiska-sdr-smoke` after adding squelch state.
+- Verified that `zapiska-sdr-smoke` reports squelch state for both:
   - the temporary file source,
   - the attached HackRF One.
-- Rebuilt `marine-recorder-gui` and `marine-sdr-smoke` after adding manual squelch controls.
-- Verified `marine-sdr-smoke --manual-squelch-check` against the temporary file source.
-- Verified `marine-sdr-smoke --live-audio --duration-ms 300` opens the live monitor path.
-- Verified `marine-sdr-smoke --manual-squelch-check --device-args hackrf=0 --sample-rate 2000000 --duration-ms 2000`
+- Rebuilt `zapiska` and `zapiska-sdr-smoke` after adding manual squelch controls.
+- Verified `zapiska-sdr-smoke --manual-squelch-check` against the temporary file source.
+- Verified `zapiska-sdr-smoke --live-audio --duration-ms 300` opens the live monitor path.
+- Verified `zapiska-sdr-smoke --manual-squelch-check --device-args hackrf=0 --sample-rate 2000000 --duration-ms 2000`
   against the attached HackRF One.
-- Rebuilt `marine-recorder-gui` and `marine-sdr-smoke` after adding WAV recording.
-- Verified `marine-sdr-smoke --record-wav --duration-ms 300` creates a WAV file
+- Rebuilt `zapiska` and `zapiska-sdr-smoke` after adding WAV recording.
+- Verified `zapiska-sdr-smoke --record-wav --duration-ms 300` creates a WAV file
   with non-zero audio data bytes against the temporary file source.
 
 ## Left To Do
@@ -179,7 +179,7 @@ Acceptance criteria:
 - Update the channel count label to distinguish loaded, selected, and visible rows.
 - Define connected/streaming behavior clearly: either disable selection changes
   while the SDR is open/streaming, or mark them as pending until reconnect/restart.
-- Rebuild `marine-recorder-gui`; add or update a focused GUI/core check if there is
+- Rebuild `zapiska`; add or update a focused GUI/core check if there is
   an existing practical test seam for selected-channel config generation.
 
 ## Notes

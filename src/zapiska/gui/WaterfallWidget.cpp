@@ -47,7 +47,7 @@ void WaterfallWidget::setChannelMarkers(const QVector<WaterfallChannelMarker> &m
     update();
 }
 
-void WaterfallWidget::setSpectrumFrame(const marine::SdrSpectrumFrame &frame)
+void WaterfallWidget::setSpectrumFrame(const zapiska::SdrSpectrumFrame &frame)
 {
     if (frame.powerDbfs.isEmpty()) {
         return;
