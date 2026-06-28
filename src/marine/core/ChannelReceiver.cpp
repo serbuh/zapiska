@@ -82,7 +82,7 @@ SdrChannelConfig normalizedChannelConfig(const SdrChannelConfig &channel)
         normalized.name = QStringLiteral("Marine Channel 16");
     }
     if (normalized.frequencyHz <= 0) {
-        normalized.frequencyHz = 156800000;
+        normalized.frequencyHz = MarineChannel16FrequencyHz;
     }
     normalized.bandwidthHz = normalizedBandwidth(normalized.bandwidthHz);
     if (normalized.squelchThresholdDbfs > 0.0) {

@@ -133,24 +133,24 @@ Even when only Channel 16 is enabled, the code should still use the `ChannelRece
 
 Do not make the application tune directly to a single channel and assume that only one channel exists. Tune HackRF to a center frequency and compute per-channel offsets in software.
 
-Example for early one-channel use:
+Default startup tuning for the multi-channel GUI:
 
 ```text
-HackRF center frequency: 156.800 MHz
-Sample rate:            2.0 MS/s
+HackRF center frequency: 158.900 MHz
+Sample rate:            8.0 MS/s
 
 Channel 16 frequency:   156.800 MHz
-Channel 16 offset:      0 Hz
+Channel 16 offset:      -2.100 MHz
 ```
 
 Example with a second nearby channel:
 
 ```text
-HackRF center frequency: 156.800 MHz
-Sample rate:            2.0 MS/s
+HackRF center frequency: selected in the GUI
+Sample rate:            selected in the GUI
 
 Channel 16 frequency:   156.800 MHz
-Channel 16 offset:      0 Hz
+Channel 16 offset:      channel_frequency - center_frequency
 
 Second channel:         configured by user
 Second offset:          channel_frequency - center_frequency
@@ -159,8 +159,8 @@ Second offset:          channel_frequency - center_frequency
 This is the same model needed later for a wider marine-band capture:
 
 ```text
-HackRF center frequency: selected to cover target channels
-Sample rate:            4.0-8.0 MS/s or as required
+HackRF center frequency: selected in the GUI to cover target channels
+Sample rate:            2.0-20.0 MS/s, selected in the GUI
 
 ChannelReceiver[06]
 ChannelReceiver[08]

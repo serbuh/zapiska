@@ -8,6 +8,10 @@
 
 namespace marine {
 
+inline constexpr qint64 DefaultSdrCenterFrequencyHz = 158900000;
+inline constexpr int DefaultSdrSampleRateHz = 8000000;
+inline constexpr qint64 MarineChannel16FrequencyHz = 156800000;
+
 enum class SdrSourceState
 {
     Closed,
@@ -35,7 +39,7 @@ struct SdrChannelConfig
 {
     QString id;
     QString name;
-    qint64 frequencyHz = 156800000;
+    qint64 frequencyHz = MarineChannel16FrequencyHz;
     int bandwidthHz = 10000;
     double squelchThresholdDbfs = -45.0;
     SdrSquelchMode squelchMode = SdrSquelchMode::Automatic;
@@ -46,8 +50,8 @@ struct SdrChannelConfig
 struct SdrSourceConfig
 {
     QString deviceArgs;
-    qint64 centerFrequencyHz = 156800000;
-    int sampleRateHz = 2000000;
+    qint64 centerFrequencyHz = DefaultSdrCenterFrequencyHz;
+    int sampleRateHz = DefaultSdrSampleRateHz;
     double gainDb = 0.0;
     int blockSize = 16384;
     QVector<SdrChannelConfig> channels;

@@ -85,7 +85,7 @@ QVector<SdrChannelConfig> defaultChannelConfigs()
     SdrChannelConfig channel;
     channel.id = QStringLiteral("16");
     channel.name = QStringLiteral("Marine Channel 16");
-    channel.frequencyHz = 156800000;
+    channel.frequencyHz = MarineChannel16FrequencyHz;
     channel.bandwidthHz = 10000;
     channel.enabled = true;
     return { channel };

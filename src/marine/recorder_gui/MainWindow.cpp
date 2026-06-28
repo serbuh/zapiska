@@ -34,8 +34,6 @@ constexpr double MaximumMeterPowerDbfs = -20.0;
 constexpr double MinimumAudioLevelDbfs = -80.0;
 constexpr double MaximumAudioLevelDbfs = 0.0;
 constexpr double DefaultSquelchThresholdDbfs = -45.0;
-constexpr qint64 DefaultCenterFrequencyHz = 158900000;
-constexpr int DefaultSampleRateHz = 8000000;
 
 constexpr int SelectedColumn = 0;
 constexpr int ChannelNameColumn = 1;
@@ -148,7 +146,7 @@ void MainWindow::buildUi()
     centerFrequencySpin->setSingleStep(0.025);
     centerFrequencySpin->setSuffix(tr(" MHz"));
     centerFrequencySpin->setKeyboardTracking(false);
-    centerFrequencySpin->setValue(static_cast<double>(DefaultCenterFrequencyHz) / 1000000.0);
+    centerFrequencySpin->setValue(static_cast<double>(marine::DefaultSdrCenterFrequencyHz) / 1000000.0);
 
     sampleRateCombo = new QComboBox(sdrMetrics);
     sampleRateCombo->addItem(tr("2M"), 2000000);
@@ -157,7 +155,7 @@ void MainWindow::buildUi()
     sampleRateCombo->addItem(tr("10M"), 10000000);
     sampleRateCombo->addItem(tr("12.5M"), 12500000);
     sampleRateCombo->addItem(tr("20M"), 20000000);
-    const int defaultSampleRateIndex = sampleRateCombo->findData(DefaultSampleRateHz);
+    const int defaultSampleRateIndex = sampleRateCombo->findData(marine::DefaultSdrSampleRateHz);
     if (defaultSampleRateIndex >= 0) {
         sampleRateCombo->setCurrentIndex(defaultSampleRateIndex);
     }
@@ -721,7 +719,7 @@ marine::SdrSourceConfig MainWindow::buildSdrConfig() const
     config.centerFrequencyHz = static_cast<qint64>(std::llround(centerFrequencySpin->value() * 1000000.0));
     config.sampleRateHz = sampleRateCombo->currentData().isValid()
         ? sampleRateCombo->currentData().toInt()
-        : DefaultSampleRateHz;
+        : marine::DefaultSdrSampleRateHz;
     config.channels.reserve(selectedChannelCount());
 
     for (const auto &channel : channelCatalog) {

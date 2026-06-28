@@ -13,8 +13,8 @@ namespace marine {
 struct ChannelReceiverConfig
 {
     SdrChannelConfig channel;
-    qint64 centerFrequencyHz = 156800000;
-    int inputSampleRateHz = 2000000;
+    qint64 centerFrequencyHz = DefaultSdrCenterFrequencyHz;
+    int inputSampleRateHz = DefaultSdrSampleRateHz;
 };
 
 struct ChannelStatsUpdate

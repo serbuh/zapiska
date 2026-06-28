@@ -1,5 +1,7 @@
 #include "MarineCore.h"
 
+#include "SdrSource.h"
+
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
@@ -52,7 +54,7 @@ QVector<ChannelConfig> defaultChannels()
         {
             QStringLiteral("16"),
             QStringLiteral("Marine Channel 16"),
-            156800000,
+            MarineChannel16FrequencyHz,
             QStringLiteral("nfm"),
             10000,
             true,
