@@ -39,6 +39,7 @@ struct SdrChannelConfig
     int bandwidthHz = 10000;
     double squelchThresholdDbfs = -45.0;
     SdrSquelchMode squelchMode = SdrSquelchMode::Automatic;
+    bool monitorEnabled = true;
     bool enabled = true;
 };
 
@@ -71,6 +72,7 @@ struct SdrChannelStats
     bool squelchOpen = false;
     double squelchThresholdDbfs = -45.0;
     SdrSquelchMode squelchMode = SdrSquelchMode::Automatic;
+    bool monitorEnabled = true;
 };
 
 struct SdrStreamStats
@@ -121,6 +123,9 @@ public:
     virtual bool setChannelSquelch(const QString &channelId,
         SdrSquelchMode mode,
         double thresholdDbfs,
+        QString *errorMessage = nullptr) = 0;
+    virtual bool setChannelMonitorEnabled(const QString &channelId,
+        bool enabled,
         QString *errorMessage = nullptr) = 0;
     virtual SdrSourceState state() const = 0;
     virtual SdrSourceConfig config() const = 0;

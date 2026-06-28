@@ -31,6 +31,9 @@ public:
         SdrSquelchMode mode,
         double thresholdDbfs,
         QString *errorMessage = nullptr) override;
+    bool setChannelMonitorEnabled(const QString &channelId,
+        bool enabled,
+        QString *errorMessage = nullptr) override;
     SdrSourceState state() const override;
     SdrSourceConfig config() const override;
     SdrStreamStats stats() const override;

@@ -41,10 +41,11 @@ constexpr int ModeColumn = 3;
 constexpr int BandwidthColumn = 4;
 constexpr int SignalColumn = 5;
 constexpr int AudioColumn = 6;
-constexpr int SquelchColumn = 7;
-constexpr int ThresholdColumn = 8;
-constexpr int StateColumn = 9;
-constexpr int RecordingColumn = 10;
+constexpr int MonitorColumn = 7;
+constexpr int SquelchColumn = 8;
+constexpr int ThresholdColumn = 9;
+constexpr int StateColumn = 10;
+constexpr int RecordingColumn = 11;
 
 QString sdrStateText(marine::SdrSourceState state)
 {
@@ -181,7 +182,7 @@ void MainWindow::buildUi()
     startButton->setEnabled(false);
     stopButton = new QPushButton(tr("Stop"), toolbar);
     stopButton->setEnabled(false);
-    monitorButton = new QPushButton(tr("Monitor"), toolbar);
+    monitorButton = new QPushButton(tr("Playing"), toolbar);
     monitorButton->setEnabled(false);
     recordButton = new QPushButton(tr("Record"), toolbar);
     recordButton->setEnabled(false);
@@ -213,7 +214,7 @@ void MainWindow::buildUi()
     channelControlsLayout->addStretch();
 
     channelTable = new QTableWidget(root);
-    channelTable->setColumnCount(11);
+    channelTable->setColumnCount(12);
     channelTable->setHorizontalHeaderLabels({
         tr("Selected"),
         tr("Channel"),
@@ -222,6 +223,7 @@ void MainWindow::buildUi()
         tr("Bandwidth"),
         tr("Signal"),
         tr("Audio"),
+        tr("Playback"),
         tr("Squelch"),
         tr("Threshold"),
         tr("State"),
@@ -265,6 +267,7 @@ void MainWindow::loadChannels()
     }
 
     initializeSelectedChannels();
+    loadChannelMonitorSettings();
     refreshChannelTable();
     updateChannelCatalogLabel();
 }
@@ -323,6 +326,41 @@ void MainWindow::saveSelectedChannelsToSettings() const
     settings.setValue(QStringLiteral("recorder/selectedChannelIds"), selectedIds);
 }
 
+void MainWindow::loadChannelMonitorSettings()
+{
+    mutedMonitorChannelIds.clear();
+
+    QSettings settings;
+    const QStringList storedIds = settings.value(QStringLiteral("recorder/mutedMonitorChannelIds")).toStringList();
+    if (storedIds.isEmpty()) {
+        return;
+    }
+
+    QSet<QString> catalogIds;
+    for (const auto &channel : channelCatalog) {
+        catalogIds.insert(channel.id);
+    }
+
+    for (const auto &id : storedIds) {
+        if (catalogIds.contains(id)) {
+            mutedMonitorChannelIds.insert(id);
+        }
+    }
+}
+
+void MainWindow::saveChannelMonitorSettings() const
+{
+    QStringList mutedIds;
+    for (const auto &channel : channelCatalog) {
+        if (mutedMonitorChannelIds.contains(channel.id)) {
+            mutedIds.append(channel.id);
+        }
+    }
+
+    QSettings settings;
+    settings.setValue(QStringLiteral("recorder/mutedMonitorChannelIds"), mutedIds);
+}
+
 void MainWindow::refreshChannelTable()
 {
     const QSignalBlocker blocker(channelTable);
@@ -356,6 +394,12 @@ void MainWindow::refreshChannelTable()
         audioMeter->setFormat(tr("waiting"));
         audioMeter->setTextVisible(true);
         channelTable->setCellWidget(row, AudioColumn, audioMeter);
+
+        auto *rowMonitorButton = new QPushButton(channelTable);
+        connect(rowMonitorButton, &QPushButton::clicked, this, [this, id = channel.id]() {
+            toggleChannelMonitor(id);
+        });
+        channelTable->setCellWidget(row, MonitorColumn, rowMonitorButton);
 
         auto *squelchMode = new QComboBox(channelTable);
         squelchMode->addItem(tr("Auto"), static_cast<int>(marine::SdrSquelchMode::Automatic));
@@ -438,6 +482,29 @@ bool MainWindow::isChannelSelected(const QString &id) const
     return selectedChannelIds.contains(id);
 }
 
+bool MainWindow::channelMonitorEnabledForChannel(const QString &id) const
+{
+    return !mutedMonitorChannelIds.contains(id);
+}
+
+void MainWindow::updateChannelMonitorButton(int row)
+{
+    if (row < 0 || row >= channelCatalog.size()) {
+        return;
+    }
+
+    auto *rowMonitorButton = qobject_cast<QPushButton *>(channelTable->cellWidget(row, MonitorColumn));
+    if (!rowMonitorButton) {
+        return;
+    }
+
+    const auto &channel = channelCatalog.at(row);
+    const bool selected = isChannelSelected(channel.id);
+    const bool monitorEnabled = channelMonitorEnabledForChannel(channel.id);
+    rowMonitorButton->setText(monitorEnabled ? tr("Playing") : tr("Muted"));
+    rowMonitorButton->setEnabled(selected);
+}
+
 int MainWindow::selectedChannelCount() const
 {
     return selectedChannelIds.size();
@@ -478,6 +545,10 @@ void MainWindow::toggleSdrConnection()
     updateSdrConfigLabels(sdrSource.config());
     sdrStatusLabel->setText(tr("SDR: connected"));
     statusBar()->showMessage(tr("Connected to %1").arg(sdrSource.backendName()), 3000);
+    if (!applyLiveAudioDesiredState()) {
+        liveAudioDesired = false;
+        applyLiveAudioDesiredState();
+    }
     refreshSdrControls();
 }
 
@@ -506,17 +577,34 @@ void MainWindow::stopSdr()
 
 void MainWindow::toggleLiveAudio()
 {
-    const bool enableLiveAudio = !sdrSource.liveAudioEnabled();
-    QString errorMessage;
-    if (!sdrSource.setLiveAudioEnabled(enableLiveAudio, &errorMessage)) {
-        handleSdrError(errorMessage);
+    const bool previousDesired = liveAudioDesired;
+    liveAudioDesired = !liveAudioDesired;
+    if (!applyLiveAudioDesiredState()) {
+        liveAudioDesired = previousDesired;
+        applyLiveAudioDesiredState();
         refreshSdrControls();
         return;
     }
 
-    sdrStatusLabel->setText(enableLiveAudio ? tr("SDR: live monitor enabled") : tr("SDR: live monitor muted"));
-    statusBar()->showMessage(enableLiveAudio ? tr("Live monitor enabled") : tr("Live monitor muted"), 3000);
+    sdrStatusLabel->setText(liveAudioDesired ? tr("SDR: playback enabled") : tr("SDR: playback muted"));
+    statusBar()->showMessage(liveAudioDesired ? tr("Playback enabled") : tr("Playback muted"), 3000);
     refreshSdrControls();
+}
+
+bool MainWindow::applyLiveAudioDesiredState()
+{
+    const auto state = sdrSource.state();
+    if (state != marine::SdrSourceState::Open && state != marine::SdrSourceState::Streaming) {
+        return true;
+    }
+
+    QString errorMessage;
+    if (!sdrSource.setLiveAudioEnabled(liveAudioDesired, &errorMessage)) {
+        handleSdrError(errorMessage);
+        return false;
+    }
+
+    return true;
 }
 
 void MainWindow::toggleRecording()
@@ -579,7 +667,6 @@ void MainWindow::refreshSdrControls()
     const bool isOpen = state == marine::SdrSourceState::Open
         || state == marine::SdrSourceState::Streaming;
     const bool isStreaming = state == marine::SdrSourceState::Streaming;
-    const bool liveAudioEnabled = sdrSource.liveAudioEnabled();
     const marine::SdrStreamStats stats = sdrSource.stats();
     const bool recording = stats.recording;
 
@@ -587,7 +674,7 @@ void MainWindow::refreshSdrControls()
     connectButton->setEnabled(true);
     startButton->setEnabled(state == marine::SdrSourceState::Open);
     stopButton->setEnabled(isStreaming);
-    monitorButton->setText(liveAudioEnabled ? tr("Mute") : tr("Monitor"));
+    monitorButton->setText(liveAudioDesired ? tr("Playing") : tr("Muted"));
     monitorButton->setEnabled(isOpen);
     recordButton->setText(recording ? tr("Stop Rec") : tr("Record"));
     recordButton->setEnabled(recording
@@ -620,6 +707,7 @@ marine::SdrSourceConfig MainWindow::buildSdrConfig() const
         sdrChannel.bandwidthHz = channel.bandwidthHz;
         sdrChannel.squelchMode = squelchModeForChannel(channel.id);
         sdrChannel.squelchThresholdDbfs = squelchThresholdForChannel(channel.id);
+        sdrChannel.monitorEnabled = channelMonitorEnabledForChannel(channel.id);
         sdrChannel.enabled = true;
         config.channels.append(sdrChannel);
     }
@@ -707,6 +795,8 @@ void MainWindow::resetChannelDisplay(int row)
     if (recordingItem) {
         recordingItem->setText(selected && channel.recordByDefault ? tr("armed") : tr("off"));
     }
+
+    updateChannelMonitorButton(row);
 }
 
 int MainWindow::channelRow(const QString &id) const
@@ -823,6 +913,43 @@ void MainWindow::handleChannelItemChanged(QTableWidgetItem *item)
     resetChannelDisplay(item->row());
     refreshChannelVisibility();
     updateChannelCatalogLabel();
+}
+
+void MainWindow::toggleChannelMonitor(const QString &id)
+{
+    const int row = channelRow(id);
+    if (row < 0 || !isChannelSelected(id)) {
+        return;
+    }
+
+    const bool previousEnabled = channelMonitorEnabledForChannel(id);
+    const bool nextEnabled = !previousEnabled;
+    if (nextEnabled) {
+        mutedMonitorChannelIds.remove(id);
+    } else {
+        mutedMonitorChannelIds.insert(id);
+    }
+
+    const auto state = sdrSource.state();
+    if (state == marine::SdrSourceState::Open || state == marine::SdrSourceState::Streaming) {
+        QString errorMessage;
+        if (!sdrSource.setChannelMonitorEnabled(id, nextEnabled, &errorMessage)) {
+            if (previousEnabled) {
+                mutedMonitorChannelIds.remove(id);
+            } else {
+                mutedMonitorChannelIds.insert(id);
+            }
+            updateChannelMonitorButton(row);
+            handleSdrError(errorMessage);
+            return;
+        }
+    }
+
+    saveChannelMonitorSettings();
+    updateChannelMonitorButton(row);
+    statusBar()->showMessage(
+        nextEnabled ? tr("Channel playback enabled") : tr("Channel playback muted"),
+        3000);
 }
 
 void MainWindow::toggleShowSelectedOnly(bool enabled)

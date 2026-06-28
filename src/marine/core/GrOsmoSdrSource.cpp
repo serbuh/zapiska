@@ -204,17 +204,20 @@ struct GrOsmoSdrSource::Impl
 
         for (std::size_t index = 0; index < blocks.audioGains.size(); ++index) {
             bool channelOpen = false;
+            bool channelMonitorEnabled = true;
             if (index < blocks.channelIds.size()) {
                 const QString &channelId = blocks.channelIds.at(index);
                 for (const auto &channelStats : statsSnapshot.channelStats) {
                     if (channelStats.id == channelId) {
                         channelOpen = channelStats.hasSquelch && channelStats.squelchOpen;
+                        channelMonitorEnabled = channelStats.monitorEnabled;
                         break;
                     }
                 }
             }
 
-            blocks.audioGains.at(index)->set_k(liveAudioEnabled && channelOpen ? openChannelGain : 0.0F);
+            blocks.audioGains.at(index)->set_k(
+                liveAudioEnabled && channelOpen && channelMonitorEnabled ? openChannelGain : 0.0F);
         }
     }
 
@@ -561,6 +564,47 @@ struct GrOsmoSdrSource::Impl
         return true;
     }
 
+    bool setChannelMonitorEnabled(const QString &channelId,
+        bool enabled,
+        QString *errorMessage)
+    {
+        if (errorMessage) {
+            errorMessage->clear();
+        }
+
+        bool found = false;
+        SdrStreamStats statsSnapshot;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            for (auto &channel : activeConfig.channels) {
+                if (channel.id == channelId) {
+                    channel.monitorEnabled = enabled;
+                    found = true;
+                    break;
+                }
+            }
+            for (auto &channelStats : activeStats.channelStats) {
+                if (channelStats.id == channelId) {
+                    channelStats.monitorEnabled = enabled;
+                    found = true;
+                    break;
+                }
+            }
+            statsSnapshot = activeStats;
+        }
+
+        if (!found) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Channel %1 is not active").arg(channelId);
+            }
+            return false;
+        }
+
+        refreshLiveAudioGains();
+        emit owner->statsUpdated(statsSnapshot);
+        return true;
+    }
+
     void stop()
     {
         stopRecording();
@@ -802,6 +846,13 @@ bool GrOsmoSdrSource::setChannelSquelch(const QString &channelId,
     QString *errorMessage)
 {
     return impl->setChannelSquelch(channelId, mode, thresholdDbfs, errorMessage);
+}
+
+bool GrOsmoSdrSource::setChannelMonitorEnabled(const QString &channelId,
+    bool enabled,
+    QString *errorMessage)
+{
+    return impl->setChannelMonitorEnabled(channelId, enabled, errorMessage);
 }
 
 SdrSourceState GrOsmoSdrSource::state() const

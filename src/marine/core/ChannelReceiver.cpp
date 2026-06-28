@@ -141,6 +141,7 @@ struct ChannelReceiver::Impl
         stats.audioSampleRateHz = outputSampleRateHz;
         stats.squelchThresholdDbfs = channel.squelchThresholdDbfs;
         stats.squelchMode = channel.squelchMode;
+        stats.monitorEnabled = channel.monitorEnabled;
         if (stats.squelchMode != SdrSquelchMode::Automatic) {
             stats.hasSquelch = true;
             stats.squelchOpen = squelchOpenFor(stats.squelchMode, stats.audioLevelDbfs, stats.squelchThresholdDbfs);

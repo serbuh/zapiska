@@ -32,8 +32,12 @@ private:
     void initializeSelectedChannels();
     bool loadSelectedChannelsFromSettings();
     void saveSelectedChannelsToSettings() const;
+    void loadChannelMonitorSettings();
+    void saveChannelMonitorSettings() const;
     void updateChannelSelectionControls();
     bool isChannelSelected(const QString &id) const;
+    bool channelMonitorEnabledForChannel(const QString &id) const;
+    void updateChannelMonitorButton(int row);
     int selectedChannelCount() const;
     int visibleChannelCount() const;
 
@@ -41,6 +45,7 @@ private:
     void startSdr();
     void stopSdr();
     void toggleLiveAudio();
+    bool applyLiveAudioDesiredState();
     void toggleRecording();
     void handleSdrStateChanged(marine::SdrSourceState state);
     void handleSdrStatsUpdated(const marine::SdrStreamStats &stats);
@@ -58,6 +63,7 @@ private:
     void applyChannelSquelch(const QString &id);
 
     void handleChannelItemChanged(QTableWidgetItem *item);
+    void toggleChannelMonitor(const QString &id);
     void toggleShowSelectedOnly(bool enabled);
 
     marine::GrOsmoSdrSource sdrSource;
@@ -80,6 +86,8 @@ private:
     QHash<QString, marine::SdrSquelchMode> channelSquelchModes;
     QHash<QString, double> channelSquelchThresholds;
     QSet<QString> selectedChannelIds;
+    QSet<QString> mutedMonitorChannelIds;
     QVector<marine::ChannelConfig> channelCatalog;
     bool showSelectedOnly = false;
+    bool liveAudioDesired = true;
 };
