@@ -36,6 +36,8 @@ private:
     void saveSelectedChannelsToSettings() const;
     void loadChannelMonitorSettings();
     void saveChannelMonitorSettings() const;
+    void loadChannelSquelchSettings();
+    void saveChannelSquelchSettings() const;
     void updateChannelSelectionControls();
     bool isChannelSelected(const QString &id) const;
     bool channelMonitorEnabledForChannel(const QString &id) const;
@@ -63,7 +65,15 @@ private:
     QString nextRecordingPath() const;
     zapiska::SdrSquelchMode squelchModeForChannel(const QString &id) const;
     double squelchThresholdForChannel(const QString &id) const;
+    QComboBox *squelchModeComboForRow(int row) const;
+    QDoubleSpinBox *squelchThresholdSpinForRow(int row) const;
     void applyChannelSquelch(const QString &id);
+    void setChannelSquelchControls(const QString &id,
+        zapiska::SdrSquelchMode mode,
+        double thresholdDbfs);
+    void autoSetChannelSquelch(const QString &id);
+    void resetChannelSquelch(const QString &id);
+    bool currentChannelPowerDbfs(const QString &id, double *powerDbfs) const;
 
     void handleChannelItemChanged(QTableWidgetItem *item);
     void toggleChannelMonitor(const QString &id);
