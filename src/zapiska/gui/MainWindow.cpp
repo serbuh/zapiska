@@ -41,15 +41,12 @@ constexpr double MaximumAutoSquelchThresholdDbfs = -10.0;
 constexpr int SelectedColumn = 0;
 constexpr int ChannelNameColumn = 1;
 constexpr int FrequencyColumn = 2;
-constexpr int ModeColumn = 3;
-constexpr int BandwidthColumn = 4;
-constexpr int SignalColumn = 5;
-constexpr int AudioColumn = 6;
-constexpr int MonitorColumn = 7;
-constexpr int SquelchColumn = 8;
-constexpr int ThresholdColumn = 9;
-constexpr int StateColumn = 10;
-constexpr int RecordingColumn = 11;
+constexpr int SignalColumn = 3;
+constexpr int AudioColumn = 4;
+constexpr int MonitorColumn = 5;
+constexpr int ThresholdColumn = 6;
+constexpr int StateColumn = 7;
+constexpr int RecordingColumn = 8;
 
 QString formatSampleCount(quint64 samplesRead)
 {
@@ -96,11 +93,6 @@ QString formatSquelchState(const zapiska::SdrChannelStats &stats)
     }
 
     return stats.squelchOpen ? QStringLiteral("open") : QStringLiteral("squelched");
-}
-
-zapiska::SdrSquelchMode squelchModeFromCombo(const QComboBox *combo)
-{
-    return static_cast<zapiska::SdrSquelchMode>(combo->currentData().toInt());
 }
 
 int meterValue(double value, double minimum, double maximum)
@@ -203,17 +195,14 @@ void MainWindow::buildUi()
     channelControlsLayout->addStretch();
 
     channelTable = new QTableWidget(root);
-    channelTable->setColumnCount(12);
+    channelTable->setColumnCount(9);
     channelTable->setHorizontalHeaderLabels({
         tr("Selected"),
-        tr("Channel"),
-        tr("Frequency"),
-        tr("Mode"),
-        tr("Bandwidth"),
+        tr("Ch"),
+        tr("Freq (MHz)"),
         tr("Signal"),
         tr("Audio"),
         tr("Playback"),
-        tr("Squelch"),
         tr("Threshold"),
         tr("State"),
         tr("Recording"),
@@ -357,7 +346,6 @@ void MainWindow::saveChannelMonitorSettings() const
 
 void MainWindow::loadChannelSquelchSettings()
 {
-    channelSquelchModes.clear();
     channelSquelchThresholds.clear();
 
     QSet<QString> catalogIds;
@@ -375,13 +363,6 @@ void MainWindow::loadChannelSquelchSettings()
         }
 
         bool ok = false;
-        const int modeValue = settings.value(QStringLiteral("mode"), 0).toInt(&ok);
-        if (ok
-            && modeValue >= static_cast<int>(zapiska::SdrSquelchMode::Automatic)
-            && modeValue <= static_cast<int>(zapiska::SdrSquelchMode::ForcedClosed)) {
-            channelSquelchModes.insert(id, static_cast<zapiska::SdrSquelchMode>(modeValue));
-        }
-
         const double threshold = settings.value(
                 QStringLiteral("threshold"),
                 DefaultSquelchThresholdDbfs)
@@ -400,17 +381,12 @@ void MainWindow::saveChannelSquelchSettings() const
 
     int index = 0;
     for (const auto &channel : channelCatalog) {
-        const bool hasMode = channelSquelchModes.contains(channel.id);
-        const bool hasThreshold = channelSquelchThresholds.contains(channel.id);
-        if (!hasMode && !hasThreshold) {
+        if (!channelSquelchThresholds.contains(channel.id)) {
             continue;
         }
 
         settings.setArrayIndex(index++);
         settings.setValue(QStringLiteral("id"), channel.id);
-        settings.setValue(
-            QStringLiteral("mode"),
-            static_cast<int>(squelchModeForChannel(channel.id)));
         settings.setValue(QStringLiteral("threshold"), squelchThresholdForChannel(channel.id));
     }
 
@@ -434,8 +410,6 @@ void MainWindow::refreshChannelTable()
 
         channelTable->setItem(row, ChannelNameColumn, new QTableWidgetItem(channel.name));
         channelTable->setItem(row, FrequencyColumn, new QTableWidgetItem(zapiska::formatFrequencyMHz(channel.frequencyHz)));
-        channelTable->setItem(row, ModeColumn, new QTableWidgetItem(channel.mode.toUpper()));
-        channelTable->setItem(row, BandwidthColumn, new QTableWidgetItem(QString::number(channel.bandwidthHz) + tr(" Hz")));
 
         auto *signalMeter = new QProgressBar(channelTable);
         signalMeter->setRange(0, 100);
@@ -456,20 +430,6 @@ void MainWindow::refreshChannelTable()
             toggleChannelMonitor(id);
         });
         channelTable->setCellWidget(row, MonitorColumn, rowMonitorButton);
-
-        auto *squelchMode = new QComboBox(channelTable);
-        squelchMode->addItem(tr("Auto"), static_cast<int>(zapiska::SdrSquelchMode::Automatic));
-        squelchMode->addItem(tr("Open"), static_cast<int>(zapiska::SdrSquelchMode::ForcedOpen));
-        squelchMode->addItem(tr("Muted"), static_cast<int>(zapiska::SdrSquelchMode::ForcedClosed));
-        squelchMode->setCurrentIndex(static_cast<int>(squelchModeForChannel(channel.id)));
-        connect(
-            squelchMode,
-            static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this,
-            [this, id = channel.id]() {
-                applyChannelSquelch(id);
-            });
-        channelTable->setCellWidget(row, SquelchColumn, squelchMode);
 
         auto *thresholdContainer = new QWidget(channelTable);
         auto *thresholdLayout = new QHBoxLayout(thresholdContainer);
@@ -821,7 +781,7 @@ zapiska::SdrSourceConfig MainWindow::buildSdrConfig() const
         sdrChannel.name = channel.name;
         sdrChannel.frequencyHz = channel.frequencyHz;
         sdrChannel.bandwidthHz = channel.bandwidthHz;
-        sdrChannel.squelchMode = squelchModeForChannel(channel.id);
+        sdrChannel.squelchMode = zapiska::SdrSquelchMode::Automatic;
         sdrChannel.squelchThresholdDbfs = squelchThresholdForChannel(channel.id);
         sdrChannel.monitorEnabled = channelMonitorEnabledForChannel(channel.id);
         sdrChannel.enabled = true;
@@ -948,23 +908,9 @@ QString MainWindow::nextRecordingPath() const
     return QDir(basePath).filePath(QStringLiteral("Zapiska/recording_%1.wav").arg(timestamp));
 }
 
-zapiska::SdrSquelchMode MainWindow::squelchModeForChannel(const QString &id) const
-{
-    return channelSquelchModes.value(id, zapiska::SdrSquelchMode::Automatic);
-}
-
 double MainWindow::squelchThresholdForChannel(const QString &id) const
 {
     return channelSquelchThresholds.value(id, DefaultSquelchThresholdDbfs);
-}
-
-QComboBox *MainWindow::squelchModeComboForRow(int row) const
-{
-    if (row < 0 || row >= channelCatalog.size()) {
-        return nullptr;
-    }
-
-    return qobject_cast<QComboBox *>(channelTable->cellWidget(row, SquelchColumn));
 }
 
 QDoubleSpinBox *MainWindow::squelchThresholdSpinForRow(int row) const
@@ -992,15 +938,12 @@ void MainWindow::applyChannelSquelch(const QString &id)
         return;
     }
 
-    const auto *modeCombo = squelchModeComboForRow(row);
     const auto *thresholdSpin = squelchThresholdSpinForRow(row);
-    if (!modeCombo || !thresholdSpin) {
+    if (!thresholdSpin) {
         return;
     }
 
-    const auto mode = squelchModeFromCombo(modeCombo);
     const double threshold = thresholdSpin->value();
-    channelSquelchModes.insert(id, mode);
     channelSquelchThresholds.insert(id, threshold);
     saveChannelSquelchSettings();
 
@@ -1014,34 +957,29 @@ void MainWindow::applyChannelSquelch(const QString &id)
     }
 
     QString errorMessage;
-    if (!sdrSource.setChannelSquelch(id, mode, threshold, &errorMessage)) {
+    if (!sdrSource.setChannelSquelch(
+            id,
+            zapiska::SdrSquelchMode::Automatic,
+            threshold,
+            &errorMessage)) {
         handleSdrError(errorMessage);
     }
 }
 
-void MainWindow::setChannelSquelchControls(const QString &id,
-    zapiska::SdrSquelchMode mode,
-    double thresholdDbfs)
+void MainWindow::setChannelSquelchThreshold(const QString &id, double thresholdDbfs)
 {
     const int row = channelRow(id);
     if (row < 0) {
         return;
     }
 
-    auto *modeCombo = squelchModeComboForRow(row);
     auto *thresholdSpin = squelchThresholdSpinForRow(row);
-    if (!modeCombo || !thresholdSpin) {
+    if (!thresholdSpin) {
         return;
     }
 
     {
-        const QSignalBlocker modeBlocker(modeCombo);
         const QSignalBlocker thresholdBlocker(thresholdSpin);
-
-        const int modeIndex = modeCombo->findData(static_cast<int>(mode));
-        if (modeIndex >= 0) {
-            modeCombo->setCurrentIndex(modeIndex);
-        }
         thresholdSpin->setValue(thresholdDbfs);
     }
 
@@ -1068,7 +1006,7 @@ void MainWindow::autoSetChannelSquelch(const QString &id)
     }
 
     threshold = std::clamp(threshold, ResetSquelchThresholdDbfs, 0.0);
-    setChannelSquelchControls(id, zapiska::SdrSquelchMode::Automatic, threshold);
+    setChannelSquelchThreshold(id, threshold);
     statusBar()->showMessage(
         tr("Auto squelch set to %1 dBFS").arg(QLocale::c().toString(threshold, 'f', 1)),
         3000);
@@ -1076,7 +1014,7 @@ void MainWindow::autoSetChannelSquelch(const QString &id)
 
 void MainWindow::resetChannelSquelch(const QString &id)
 {
-    setChannelSquelchControls(id, zapiska::SdrSquelchMode::Automatic, ResetSquelchThresholdDbfs);
+    setChannelSquelchThreshold(id, ResetSquelchThresholdDbfs);
     statusBar()->showMessage(tr("Squelch reset to -150.0 dBFS"), 3000);
 }
 

@@ -63,14 +63,10 @@ private:
     int channelRow(const QString &id) const;
     bool channelHasRecordableAudio(const zapiska::SdrStreamStats &stats, const QString &id) const;
     QString nextRecordingPath() const;
-    zapiska::SdrSquelchMode squelchModeForChannel(const QString &id) const;
     double squelchThresholdForChannel(const QString &id) const;
-    QComboBox *squelchModeComboForRow(int row) const;
     QDoubleSpinBox *squelchThresholdSpinForRow(int row) const;
     void applyChannelSquelch(const QString &id);
-    void setChannelSquelchControls(const QString &id,
-        zapiska::SdrSquelchMode mode,
-        double thresholdDbfs);
+    void setChannelSquelchThreshold(const QString &id, double thresholdDbfs);
     void autoSetChannelSquelch(const QString &id);
     void resetChannelSquelch(const QString &id);
     bool currentChannelPowerDbfs(const QString &id, double *powerDbfs) const;
@@ -96,7 +92,6 @@ private:
     WaterfallWidget *waterfallWidget = nullptr;
     QTableWidget *channelTable = nullptr;
 
-    QHash<QString, zapiska::SdrSquelchMode> channelSquelchModes;
     QHash<QString, double> channelSquelchThresholds;
     QSet<QString> selectedChannelIds;
     QSet<QString> mutedMonitorChannelIds;
