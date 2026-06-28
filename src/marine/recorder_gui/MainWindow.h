@@ -54,7 +54,7 @@ private:
     void handleSpectrumUpdated(const marine::SdrSpectrumFrame &frame);
     void handleSdrError(const QString &message);
     void refreshSdrControls();
-    void updateSdrConfigLabels(const marine::SdrSourceConfig &config);
+    void updateSdrTuningControls(const marine::SdrSourceConfig &config);
     marine::SdrSourceConfig buildSdrConfig() const;
     void updateChannelMeters(const marine::SdrStreamStats &stats);
     void resetChannelDisplay(int row);
@@ -72,8 +72,8 @@ private:
 
     marine::GrOsmoSdrSource sdrSource;
 
-    QLabel *centerFrequencyLabel = nullptr;
-    QLabel *sampleRateLabel = nullptr;
+    QDoubleSpinBox *centerFrequencySpin = nullptr;
+    QComboBox *sampleRateCombo = nullptr;
     QLabel *sampleCountLabel = nullptr;
     QLabel *widebandPowerLabel = nullptr;
     QLabel *sdrStatusLabel = nullptr;

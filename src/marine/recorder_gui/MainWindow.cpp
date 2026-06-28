@@ -34,6 +34,8 @@ constexpr double MaximumMeterPowerDbfs = -20.0;
 constexpr double MinimumAudioLevelDbfs = -80.0;
 constexpr double MaximumAudioLevelDbfs = 0.0;
 constexpr double DefaultSquelchThresholdDbfs = -45.0;
+constexpr qint64 DefaultCenterFrequencyHz = 158900000;
+constexpr int DefaultSampleRateHz = 8000000;
 
 constexpr int SelectedColumn = 0;
 constexpr int ChannelNameColumn = 1;
@@ -47,20 +49,6 @@ constexpr int SquelchColumn = 8;
 constexpr int ThresholdColumn = 9;
 constexpr int StateColumn = 10;
 constexpr int RecordingColumn = 11;
-
-QString formatSampleRate(int sampleRateHz)
-{
-    if (sampleRateHz >= 1000000) {
-        return QLocale::c().toString(static_cast<double>(sampleRateHz) / 1000000.0, 'f', 3)
-            + QStringLiteral(" MS/s");
-    }
-    if (sampleRateHz >= 1000) {
-        return QLocale::c().toString(static_cast<double>(sampleRateHz) / 1000.0, 'f', 1)
-            + QStringLiteral(" kS/s");
-    }
-
-    return QLocale::c().toString(sampleRateHz) + QStringLiteral(" S/s");
-}
 
 QString formatSampleCount(quint64 samplesRead)
 {
@@ -154,8 +142,26 @@ void MainWindow::buildUi()
     auto *channelControlsLayout = new QHBoxLayout(channelControls);
     channelControlsLayout->setContentsMargins(0, 0, 0, 0);
 
-    centerFrequencyLabel = new QLabel(tr("Center: 156.800 MHz"), sdrMetrics);
-    sampleRateLabel = new QLabel(tr("Sample rate: 2.000 MS/s"), sdrMetrics);
+    centerFrequencySpin = new QDoubleSpinBox(sdrMetrics);
+    centerFrequencySpin->setRange(1.000, 6000.000);
+    centerFrequencySpin->setDecimals(3);
+    centerFrequencySpin->setSingleStep(0.025);
+    centerFrequencySpin->setSuffix(tr(" MHz"));
+    centerFrequencySpin->setKeyboardTracking(false);
+    centerFrequencySpin->setValue(static_cast<double>(DefaultCenterFrequencyHz) / 1000000.0);
+
+    sampleRateCombo = new QComboBox(sdrMetrics);
+    sampleRateCombo->addItem(tr("2M"), 2000000);
+    sampleRateCombo->addItem(tr("4M"), 4000000);
+    sampleRateCombo->addItem(tr("8M"), 8000000);
+    sampleRateCombo->addItem(tr("10M"), 10000000);
+    sampleRateCombo->addItem(tr("12.5M"), 12500000);
+    sampleRateCombo->addItem(tr("20M"), 20000000);
+    const int defaultSampleRateIndex = sampleRateCombo->findData(DefaultSampleRateHz);
+    if (defaultSampleRateIndex >= 0) {
+        sampleRateCombo->setCurrentIndex(defaultSampleRateIndex);
+    }
+
     sampleCountLabel = new QLabel(tr("Samples: 0"), sdrMetrics);
     widebandPowerLabel = new QLabel(tr("Power: waiting"), sdrMetrics);
     sdrStatusLabel = new QLabel(tr("SDR: ready"), root);
@@ -176,9 +182,11 @@ void MainWindow::buildUi()
     toolbarLayout->addWidget(recordButton);
     toolbarLayout->addStretch();
 
-    sdrMetricsLayout->addWidget(centerFrequencyLabel);
+    sdrMetricsLayout->addWidget(new QLabel(tr("Center:"), sdrMetrics));
+    sdrMetricsLayout->addWidget(centerFrequencySpin);
     sdrMetricsLayout->addSpacing(16);
-    sdrMetricsLayout->addWidget(sampleRateLabel);
+    sdrMetricsLayout->addWidget(new QLabel(tr("Sample rate:"), sdrMetrics));
+    sdrMetricsLayout->addWidget(sampleRateCombo);
     sdrMetricsLayout->addSpacing(16);
     sdrMetricsLayout->addWidget(sampleCountLabel);
     sdrMetricsLayout->addSpacing(16);
@@ -531,7 +539,7 @@ void MainWindow::toggleSdrConnection()
         return;
     }
 
-    updateSdrConfigLabels(sdrSource.config());
+    updateSdrTuningControls(sdrSource.config());
     sdrStatusLabel->setText(tr("SDR: connected"));
     statusBar()->showMessage(tr("Connected to %1").arg(sdrSource.backendName()), 3000);
     if (!applyLiveAudioDesiredState()) {
@@ -635,8 +643,9 @@ void MainWindow::toggleRecording()
 
 void MainWindow::handleSdrStateChanged(marine::SdrSourceState state)
 {
-    Q_UNUSED(state);
-    updateSdrConfigLabels(sdrSource.config());
+    if (state == marine::SdrSourceState::Open || state == marine::SdrSourceState::Streaming) {
+        updateSdrTuningControls(sdrSource.config());
+    }
     refreshSdrControls();
 }
 
@@ -689,20 +698,30 @@ void MainWindow::refreshSdrControls()
     recordButton->setText(recording ? tr("Stop Rec") : tr("Record"));
     recordButton->setEnabled(recording
         || (isStreaming && channelHasRecordableAudio(stats, QStringLiteral("16"))));
+    centerFrequencySpin->setEnabled(!isOpen);
+    sampleRateCombo->setEnabled(!isOpen);
     updateChannelSelectionControls();
 }
 
-void MainWindow::updateSdrConfigLabels(const marine::SdrSourceConfig &config)
+void MainWindow::updateSdrTuningControls(const marine::SdrSourceConfig &config)
 {
-    centerFrequencyLabel->setText(tr("Center: %1")
-        .arg(marine::formatFrequencyMHz(config.centerFrequencyHz)));
-    sampleRateLabel->setText(tr("Sample rate: %1")
-        .arg(formatSampleRate(config.sampleRateHz)));
+    const QSignalBlocker centerBlocker(centerFrequencySpin);
+    centerFrequencySpin->setValue(static_cast<double>(config.centerFrequencyHz) / 1000000.0);
+
+    const QSignalBlocker sampleRateBlocker(sampleRateCombo);
+    const int sampleRateIndex = sampleRateCombo->findData(config.sampleRateHz);
+    if (sampleRateIndex >= 0) {
+        sampleRateCombo->setCurrentIndex(sampleRateIndex);
+    }
 }
 
 marine::SdrSourceConfig MainWindow::buildSdrConfig() const
 {
     marine::SdrSourceConfig config;
+    config.centerFrequencyHz = static_cast<qint64>(std::llround(centerFrequencySpin->value() * 1000000.0));
+    config.sampleRateHz = sampleRateCombo->currentData().isValid()
+        ? sampleRateCombo->currentData().toInt()
+        : DefaultSampleRateHz;
     config.channels.reserve(selectedChannelCount());
 
     for (const auto &channel : channelCatalog) {
