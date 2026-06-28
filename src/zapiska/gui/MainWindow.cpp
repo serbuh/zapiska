@@ -15,8 +15,10 @@
 #include <QPainter>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QScrollBar>
 #include <QSettings>
 #include <QSignalBlocker>
+#include <QSlider>
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QStringList>
@@ -36,6 +38,9 @@ constexpr double DefaultSquelchThresholdDbfs = -45.0;
 constexpr double ResetSquelchThresholdDbfs = -150.0;
 constexpr double AutoSquelchOffsetDb = 3.0;
 constexpr double MaximumAutoSquelchThresholdDbfs = -10.0;
+constexpr int FftZoomSliderMinimum = 0;
+constexpr int FftZoomSliderMaximum = 60;
+constexpr int FftScrollMaximum = 1000;
 
 constexpr int SelectedColumn = 0;
 constexpr int ChannelNameColumn = 1;
@@ -89,6 +94,24 @@ int meterValue(double value, double minimum, double maximum)
     const double clampedValue = std::clamp(value, minimum, maximum);
     const double normalized = (clampedValue - minimum) / (maximum - minimum);
     return static_cast<int>(std::lround(normalized * 100.0));
+}
+
+double fftZoomFromSliderValue(int value)
+{
+    return std::pow(2.0, static_cast<double>(value) / 10.0);
+}
+
+int sliderValueFromFftZoom(double zoom)
+{
+    return std::clamp(
+        static_cast<int>(std::lround(std::log2(std::max(1.0, zoom)) * 10.0)),
+        FftZoomSliderMinimum,
+        FftZoomSliderMaximum);
+}
+
+QString formatFftZoom(double zoom)
+{
+    return QLocale::c().toString(zoom, 'f', zoom < 10.0 ? 1 : 0) + QStringLiteral("x");
 }
 
 bool channelUnsquelched(const zapiska::SdrStreamStats &stats, const QString &id)
@@ -237,9 +260,31 @@ void MainWindow::buildUi()
 
     fftButton = new QPushButton(tr("FFT Off"), channelControls);
     showSelectedOnlyButton = new QPushButton(tr("Show All Channels"), channelControls);
+    fftZoomLabel = new QLabel(formatFftZoom(waterfallWidget->horizontalZoom()), channelControls);
+    fftZoomLabel->setMinimumWidth(44);
+
+    fftZoomSlider = new QSlider(Qt::Horizontal, channelControls);
+    fftZoomSlider->setRange(FftZoomSliderMinimum, FftZoomSliderMaximum);
+    fftZoomSlider->setSingleStep(1);
+    fftZoomSlider->setPageStep(10);
+    fftZoomSlider->setFixedWidth(140);
+    fftZoomSlider->setToolTip(tr("FFT horizontal zoom"));
+
+    fftScrollBar = new QScrollBar(Qt::Horizontal, channelControls);
+    fftScrollBar->setRange(0, FftScrollMaximum);
+    fftScrollBar->setSingleStep(10);
+    fftScrollBar->setPageStep(FftScrollMaximum);
+    fftScrollBar->setFixedWidth(180);
+    fftScrollBar->setToolTip(tr("FFT horizontal scroll"));
 
     channelControlsLayout->addWidget(new QLabel(tr("Display:"), channelControls));
     channelControlsLayout->addWidget(fftButton);
+    channelControlsLayout->addSpacing(12);
+    channelControlsLayout->addWidget(new QLabel(tr("Zoom:"), channelControls));
+    channelControlsLayout->addWidget(fftZoomSlider);
+    channelControlsLayout->addWidget(fftZoomLabel);
+    channelControlsLayout->addWidget(fftScrollBar);
+    channelControlsLayout->addSpacing(12);
     channelControlsLayout->addWidget(showSelectedOnlyButton);
     channelControlsLayout->addStretch();
 
@@ -266,6 +311,16 @@ void MainWindow::buildUi()
     connect(monitorButton, &QPushButton::clicked, this, &MainWindow::toggleLiveAudio);
     connect(recordButton, &QPushButton::clicked, this, &MainWindow::toggleRecording);
     connect(fftButton, &QPushButton::clicked, this, &MainWindow::toggleFftVisible);
+    connect(fftZoomSlider, &QSlider::valueChanged, this, [this](int value) {
+        waterfallWidget->setHorizontalZoom(fftZoomFromSliderValue(value));
+    });
+    connect(fftScrollBar, &QScrollBar::valueChanged, this, [this](int value) {
+        waterfallWidget->setHorizontalPanRatio(
+            static_cast<double>(value) / static_cast<double>(FftScrollMaximum));
+    });
+    connect(waterfallWidget, &WaterfallWidget::horizontalViewChanged, this, [this]() {
+        refreshFftViewControls();
+    });
     connect(showSelectedOnlyButton, &QPushButton::clicked, this, [this]() {
         toggleShowSelectedOnly(!showSelectedOnly);
     });
@@ -555,6 +610,32 @@ void MainWindow::refreshFftControls()
 {
     waterfallWidget->setVisible(fftVisible);
     fftButton->setText(fftVisible ? tr("FFT Off") : tr("FFT On"));
+    fftZoomLabel->setVisible(fftVisible);
+    fftZoomSlider->setVisible(fftVisible);
+    fftScrollBar->setVisible(fftVisible);
+    refreshFftViewControls();
+}
+
+void MainWindow::refreshFftViewControls()
+{
+    const double zoom = waterfallWidget->horizontalZoom();
+    const bool zoomed = zoom > 1.01;
+
+    {
+        const QSignalBlocker blocker(fftZoomSlider);
+        fftZoomSlider->setValue(sliderValueFromFftZoom(zoom));
+    }
+
+    {
+        const QSignalBlocker blocker(fftScrollBar);
+        fftScrollBar->setEnabled(zoomed && fftVisible);
+        fftScrollBar->setPageStep(std::max(1, static_cast<int>(std::lround(
+            static_cast<double>(FftScrollMaximum) / zoom))));
+        fftScrollBar->setValue(static_cast<int>(std::lround(
+            waterfallWidget->horizontalPanRatio() * static_cast<double>(FftScrollMaximum))));
+    }
+
+    fftZoomLabel->setText(formatFftZoom(zoom));
 }
 
 void MainWindow::updateChannelSelectionControls()

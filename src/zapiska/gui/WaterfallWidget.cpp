@@ -1,7 +1,9 @@
 #include "WaterfallWidget.h"
 
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPaintEvent>
+#include <QWheelEvent>
 
 #include <algorithm>
 #include <cmath>
@@ -12,6 +14,8 @@ namespace {
 constexpr int WaterfallRows = 180;
 constexpr float MinimumDisplayDbfs = -120.0F;
 constexpr float MaximumDisplayDbfs = -20.0F;
+constexpr double MaximumHorizontalZoom = 64.0;
+constexpr double MinimumPanEpsilon = 0.0001;
 
 int interpolate(int start, int end, float ratio)
 {
@@ -47,6 +51,26 @@ void WaterfallWidget::setChannelMarkers(const QVector<WaterfallChannelMarker> &m
     update();
 }
 
+void WaterfallWidget::setHorizontalZoom(double zoom)
+{
+    setHorizontalView(zoom, horizontalPan, true);
+}
+
+double WaterfallWidget::horizontalZoom() const
+{
+    return horizontalZoomLevel;
+}
+
+void WaterfallWidget::setHorizontalPanRatio(double ratio)
+{
+    setHorizontalView(horizontalZoomLevel, ratio, true);
+}
+
+double WaterfallWidget::horizontalPanRatio() const
+{
+    return horizontalPan;
+}
+
 void WaterfallWidget::setSpectrumFrame(const zapiska::SdrSpectrumFrame &frame)
 {
     if (frame.powerDbfs.isEmpty()) {
@@ -55,6 +79,7 @@ void WaterfallWidget::setSpectrumFrame(const zapiska::SdrSpectrumFrame &frame)
 
     latestFrame = frame;
     hasFrame = true;
+    setHorizontalView(horizontalZoomLevel, horizontalPan, true);
 
     const int bins = frame.powerDbfs.size();
     if (waterfallImage.size() != QSize(bins, WaterfallRows)) {
@@ -83,7 +108,14 @@ void WaterfallWidget::paintEvent(QPaintEvent *event)
     painter.fillRect(rect(), QColor(4, 6, 10));
 
     if (!waterfallImage.isNull()) {
-        painter.drawImage(rect(), waterfallImage);
+        const double sourceX = visibleImageStartFraction() * static_cast<double>(waterfallImage.width());
+        const double sourceWidth = static_cast<double>(waterfallImage.width()) / horizontalZoomLevel;
+        const QRectF sourceRect(
+            sourceX,
+            0.0,
+            std::max(1.0, sourceWidth),
+            static_cast<double>(waterfallImage.height()));
+        painter.drawImage(rect(), waterfallImage, sourceRect);
     }
 
     if (!hasFrame || latestFrame.sampleRateHz <= 0) {
@@ -137,6 +169,91 @@ void WaterfallWidget::paintEvent(QPaintEvent *event)
     }
 }
 
+void WaterfallWidget::wheelEvent(QWheelEvent *event)
+{
+    if (!hasFrame || width() <= 1) {
+        event->ignore();
+        return;
+    }
+
+    const double steps = static_cast<double>(event->angleDelta().y()) / 120.0;
+    if (std::abs(steps) < 0.01) {
+        event->ignore();
+        return;
+    }
+
+    const double oldZoom = horizontalZoomLevel;
+    const double oldVisibleFraction = 1.0 / oldZoom;
+    const double oldStartFraction = visibleImageStartFraction();
+#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
+    const double cursorX = static_cast<double>(event->pos().x());
+#else
+    const double cursorX = event->position().x();
+#endif
+    const double cursorFraction = std::clamp(cursorX / static_cast<double>(width() - 1), 0.0, 1.0);
+    const double fixedFrequencyFraction = oldStartFraction + cursorFraction * oldVisibleFraction;
+    const double zoomFactor = std::pow(1.25, steps);
+    const double newZoom = clampedHorizontalZoom(oldZoom * zoomFactor);
+    const double newVisibleFraction = 1.0 / newZoom;
+    const double newStartFraction = std::clamp(
+        fixedFrequencyFraction - cursorFraction * newVisibleFraction,
+        0.0,
+        1.0 - newVisibleFraction);
+    const double newPan = newZoom <= 1.0 + MinimumPanEpsilon
+        ? 0.5
+        : newStartFraction / (1.0 - newVisibleFraction);
+
+    setHorizontalView(newZoom, newPan, true);
+    event->accept();
+}
+
+void WaterfallWidget::mousePressEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton && horizontalZoomLevel > 1.0 + MinimumPanEpsilon) {
+        panning = true;
+        lastPanPoint = event->pos();
+        setCursor(Qt::ClosedHandCursor);
+        event->accept();
+        return;
+    }
+
+    QWidget::mousePressEvent(event);
+}
+
+void WaterfallWidget::mouseMoveEvent(QMouseEvent *event)
+{
+    if (!panning || width() <= 1 || horizontalZoomLevel <= 1.0 + MinimumPanEpsilon) {
+        QWidget::mouseMoveEvent(event);
+        return;
+    }
+
+    const int deltaX = event->pos().x() - lastPanPoint.x();
+    lastPanPoint = event->pos();
+
+    const double visibleFraction = 1.0 / horizontalZoomLevel;
+    const double panDenominator = 1.0 - visibleFraction;
+    if (panDenominator > MinimumPanEpsilon) {
+        const double panDelta = -static_cast<double>(deltaX)
+            * visibleFraction
+            / (static_cast<double>(width()) * panDenominator);
+        setHorizontalView(horizontalZoomLevel, horizontalPan + panDelta, true);
+    }
+
+    event->accept();
+}
+
+void WaterfallWidget::mouseReleaseEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton && panning) {
+        panning = false;
+        unsetCursor();
+        event->accept();
+        return;
+    }
+
+    QWidget::mouseReleaseEvent(event);
+}
+
 QRgb WaterfallWidget::colorForPower(float powerDbfs) const
 {
     const float normalized = std::clamp(
@@ -162,9 +279,76 @@ int WaterfallWidget::xForFrequency(qint64 frequencyHz, int width) const
         return -1;
     }
 
-    const double startFrequency = static_cast<double>(latestFrame.centerFrequencyHz)
-        - (static_cast<double>(latestFrame.sampleRateHz) / 2.0);
+    const double startFrequency = visibleFrequencyStartHz();
     const double offset = static_cast<double>(frequencyHz) - startFrequency;
-    const double normalized = offset / static_cast<double>(latestFrame.sampleRateHz);
+    const double normalized = offset / visibleFrequencySpanHz();
+    if (normalized < 0.0 || normalized > 1.0) {
+        return -1;
+    }
+
     return static_cast<int>(std::lround(normalized * static_cast<double>(width - 1)));
+}
+
+bool WaterfallWidget::setHorizontalView(double zoom, double panRatio, bool notify)
+{
+    const double nextZoom = clampedHorizontalZoom(zoom);
+    const double nextPan = clampedHorizontalPanRatio(panRatio, nextZoom);
+    if (std::abs(horizontalZoomLevel - nextZoom) < 0.001
+        && std::abs(horizontalPan - nextPan) < 0.001) {
+        return false;
+    }
+
+    horizontalZoomLevel = nextZoom;
+    horizontalPan = nextPan;
+    update();
+
+    if (notify) {
+        emit horizontalViewChanged(horizontalZoomLevel, horizontalPan);
+    }
+    return true;
+}
+
+double WaterfallWidget::clampedHorizontalZoom(double zoom) const
+{
+    double maximumZoom = MaximumHorizontalZoom;
+    if (hasFrame && !latestFrame.powerDbfs.isEmpty()) {
+        maximumZoom = std::max(1.0, std::min(maximumZoom, static_cast<double>(latestFrame.powerDbfs.size()) / 4.0));
+    }
+    return std::clamp(zoom, 1.0, maximumZoom);
+}
+
+double WaterfallWidget::clampedHorizontalPanRatio(double ratio, double zoom) const
+{
+    if (zoom <= 1.0 + MinimumPanEpsilon) {
+        return 0.5;
+    }
+    return std::clamp(ratio, 0.0, 1.0);
+}
+
+double WaterfallWidget::visibleFrequencySpanHz() const
+{
+    if (!hasFrame || latestFrame.sampleRateHz <= 0) {
+        return 1.0;
+    }
+    return static_cast<double>(latestFrame.sampleRateHz) / horizontalZoomLevel;
+}
+
+double WaterfallWidget::visibleFrequencyStartHz() const
+{
+    if (!hasFrame || latestFrame.sampleRateHz <= 0) {
+        return 0.0;
+    }
+
+    const double fullStartFrequency = static_cast<double>(latestFrame.centerFrequencyHz)
+        - (static_cast<double>(latestFrame.sampleRateHz) / 2.0);
+    const double hiddenSpan = static_cast<double>(latestFrame.sampleRateHz) - visibleFrequencySpanHz();
+    return fullStartFrequency + hiddenSpan * horizontalPan;
+}
+
+double WaterfallWidget::visibleImageStartFraction() const
+{
+    if (horizontalZoomLevel <= 1.0 + MinimumPanEpsilon) {
+        return 0.0;
+    }
+    return horizontalPan * (1.0 - (1.0 / horizontalZoomLevel));
 }

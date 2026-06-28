@@ -12,6 +12,8 @@ class QComboBox;
 class QDoubleSpinBox;
 class QLabel;
 class QPushButton;
+class QScrollBar;
+class QSlider;
 class QTableWidget;
 class QTableWidgetItem;
 class WaterfallWidget;
@@ -30,6 +32,7 @@ private:
     void refreshChannelVisibility();
     void refreshWaterfallChannels(const zapiska::SdrStreamStats *stats = nullptr);
     void refreshFftControls();
+    void refreshFftViewControls();
     void initializeSelectedChannels();
     bool loadSelectedChannelsFromSettings();
     void saveSelectedChannelsToSettings() const;
@@ -88,6 +91,9 @@ private:
     QPushButton *recordButton = nullptr;
     QPushButton *fftButton = nullptr;
     QPushButton *showSelectedOnlyButton = nullptr;
+    QLabel *fftZoomLabel = nullptr;
+    QSlider *fftZoomSlider = nullptr;
+    QScrollBar *fftScrollBar = nullptr;
     WaterfallWidget *waterfallWidget = nullptr;
     QTableWidget *channelTable = nullptr;
 
