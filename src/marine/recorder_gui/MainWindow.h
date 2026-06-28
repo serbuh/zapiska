@@ -28,7 +28,6 @@ private:
     void loadChannels();
     void refreshChannelTable();
     void refreshChannelVisibility();
-    void updateChannelCatalogLabel();
     void initializeSelectedChannels();
     bool loadSelectedChannelsFromSettings();
     void saveSelectedChannelsToSettings() const;
@@ -39,9 +38,9 @@ private:
     bool channelMonitorEnabledForChannel(const QString &id) const;
     void updateChannelMonitorButton(int row);
     int selectedChannelCount() const;
-    int visibleChannelCount() const;
 
     void toggleSdrConnection();
+    void toggleSdrStreaming();
     void startSdr();
     void stopSdr();
     void toggleLiveAudio();
@@ -68,16 +67,13 @@ private:
 
     marine::GrOsmoSdrSource sdrSource;
 
-    QLabel *deviceStateLabel = nullptr;
     QLabel *centerFrequencyLabel = nullptr;
     QLabel *sampleRateLabel = nullptr;
     QLabel *sampleCountLabel = nullptr;
     QLabel *widebandPowerLabel = nullptr;
-    QLabel *channelCatalogLabel = nullptr;
     QLabel *sdrStatusLabel = nullptr;
     QPushButton *connectButton = nullptr;
     QPushButton *startButton = nullptr;
-    QPushButton *stopButton = nullptr;
     QPushButton *monitorButton = nullptr;
     QPushButton *recordButton = nullptr;
     QPushButton *showSelectedOnlyButton = nullptr;
@@ -88,6 +84,6 @@ private:
     QSet<QString> selectedChannelIds;
     QSet<QString> mutedMonitorChannelIds;
     QVector<marine::ChannelConfig> channelCatalog;
-    bool showSelectedOnly = false;
+    bool showSelectedOnly = true;
     bool liveAudioDesired = true;
 };
