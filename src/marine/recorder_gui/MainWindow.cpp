@@ -239,7 +239,7 @@ void MainWindow::buildUi()
     layout->addWidget(channelTable);
 
     setCentralWidget(root);
-    setWindowTitle(tr("Zapiska Marine Recorder"));
+    setWindowTitle(tr("Zapiska"));
     resize(900, 420);
     refreshFftControls();
 }
