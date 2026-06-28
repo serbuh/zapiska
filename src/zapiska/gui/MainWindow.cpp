@@ -12,6 +12,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLocale>
+#include <QPainter>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QSettings>
@@ -89,6 +90,55 @@ int meterValue(double value, double minimum, double maximum)
     const double normalized = (clampedValue - minimum) / (maximum - minimum);
     return static_cast<int>(std::lround(normalized * 100.0));
 }
+
+class SquelchSignalMeter : public QProgressBar
+{
+public:
+    explicit SquelchSignalMeter(QWidget *parent = nullptr)
+        : QProgressBar(parent)
+    {
+    }
+
+    void setSquelchThresholdDbfs(double thresholdDbfs)
+    {
+        if (std::abs(squelchThresholdDbfs - thresholdDbfs) < 0.05) {
+            return;
+        }
+
+        squelchThresholdDbfs = thresholdDbfs;
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *event) override
+    {
+        QProgressBar::paintEvent(event);
+
+        const QRect markerRect = rect().adjusted(2, 2, -2, -2);
+        if (!markerRect.isValid()) {
+            return;
+        }
+
+        const double clampedThreshold = std::clamp(
+            squelchThresholdDbfs,
+            MinimumMeterPowerDbfs,
+            MaximumMeterPowerDbfs);
+        const double normalized = (clampedThreshold - MinimumMeterPowerDbfs)
+            / (MaximumMeterPowerDbfs - MinimumMeterPowerDbfs);
+        const int markerSpan = std::max(markerRect.width() - 1, 0);
+        const int x = markerRect.left()
+            + static_cast<int>(std::lround(normalized * static_cast<double>(markerSpan)));
+
+        QPainter painter(this);
+        QPen pen(QColor(210, 0, 0));
+        pen.setWidth(2);
+        painter.setPen(pen);
+        painter.drawLine(x, markerRect.top(), x, markerRect.bottom());
+    }
+
+private:
+    double squelchThresholdDbfs = DefaultSquelchThresholdDbfs;
+};
 
 } // namespace
 
@@ -398,11 +448,12 @@ void MainWindow::refreshChannelTable()
         channelTable->setItem(row, ChannelNameColumn, new QTableWidgetItem(channel.name));
         channelTable->setItem(row, FrequencyColumn, new QTableWidgetItem(zapiska::formatFrequencyMHz(channel.frequencyHz)));
 
-        auto *signalMeter = new QProgressBar(channelTable);
+        auto *signalMeter = new SquelchSignalMeter(channelTable);
         signalMeter->setRange(0, 100);
         signalMeter->setValue(0);
         signalMeter->setFormat(tr("waiting"));
         signalMeter->setTextVisible(true);
+        signalMeter->setSquelchThresholdDbfs(squelchThresholdForChannel(channel.id));
         channelTable->setCellWidget(row, SignalColumn, signalMeter);
 
         auto *rowMonitorButton = new QPushButton(channelTable);
@@ -910,6 +961,10 @@ void MainWindow::applyChannelSquelch(const QString &id)
     const double threshold = thresholdSpin->value();
     channelSquelchThresholds.insert(id, threshold);
     saveChannelSquelchSettings();
+
+    if (auto *signalMeter = dynamic_cast<SquelchSignalMeter *>(channelTable->cellWidget(row, SignalColumn))) {
+        signalMeter->setSquelchThresholdDbfs(threshold);
+    }
 
     if (!isChannelSelected(id)) {
         return;
