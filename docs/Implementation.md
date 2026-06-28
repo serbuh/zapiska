@@ -103,6 +103,12 @@ This document tracks the current implementation state for Zapiska's marine recor
 Step 13 is complete: Channel 16 can be manually recorded to a continuous WAV file
 while the SDR is streaming.
 
+Step 14 is reprioritized: replace the current add/remove channel picker with
+all-channel controls. Every channel from `data/marine_channels.json` should appear
+in the channel table. A `Selected` checkbox marks whether that channel is active.
+Selected channels are the only channels included in the SDR config, receiver graph,
+live monitor/playback mix, and later recording controls.
+
 ## Verification
 
 - Configured the project with CMake using `/tmp/zapiska-build`.
@@ -135,29 +141,56 @@ while the SDR is streaming.
 
 ## Left To Do
 
-1. Add JSON sidecar metadata for recordings.
-2. Add a configurable second channel display.
-3. Add per-channel recording controls.
-4. Add a separate playback GUI for recorded WAV files.
-5. Add squelch-gated segment recording and timeline metadata.
+1. Replace the dropdown/add/remove channel selection UI with an all-channel table:
+   every catalog channel is listed, each row has a `Selected` checkbox, and Channel
+   16 plus any `enabled_by_default` channels start selected.
+2. Make selected channels the active channel set:
+   build `SdrSourceConfig::channels` only from selected rows, show loaded/selected/
+   visible channel counts, and prevent stale unselected channels from being
+   monitored or recorded.
+3. Add a `Show selected only` toggle that filters the table view without changing
+   channel selection state.
+4. Add multi-channel live playback/monitor controls before expanding recording:
+   selected active channels should be playable at the same time, and the GUI should
+   show how many channels are currently selected/active in the monitor path.
+5. Add a playback GUI/workflow for existing recordings before adding broader
+   per-channel recording controls.
+6. Add JSON sidecar metadata for recordings.
+7. Add per-channel recording controls for selected active channels.
+8. Add squelch-gated segment recording and timeline metadata.
 
 ## Immediate Next Step
 
-Add JSON sidecar metadata for Channel 16 recordings.
+Replace the current channel dropdown/add/remove workflow with selected-channel
+controls in the channel table.
 
 Acceptance criteria:
 
-- Write a JSON metadata file next to each WAV recording.
-- Include channel id/name, frequency, center frequency, sample rate, audio sample rate,
-  start/stop timestamps, squelch mode/threshold, and WAV path.
-- Surface metadata write errors in the GUI or smoke output.
-- Extend smoke or add a focused check that proves both WAV and metadata files are created.
+- Remove the catalog dropdown, `Add Channel`, and `Remove Selected` controls from
+  the planned primary workflow.
+- Load every catalog channel into the table instead of only visible/added channels.
+- Add a `Selected` checkbox column.
+- Treat checked rows as active and unchecked rows as inactive.
+- Keep Channel 16 selected by default, along with any other channels marked
+  `enabled_by_default`.
+- Build the SDR channel config only from selected rows.
+- Add a `Show selected only` toggle that hides unchecked rows without changing
+  their checked state.
+- Update the channel count label to distinguish loaded, selected, and visible rows.
+- Define connected/streaming behavior clearly: either disable selection changes
+  while the SDR is open/streaming, or mark them as pending until reconnect/restart.
+- Rebuild `marine-recorder-gui`; add or update a focused GUI/core check if there is
+  an existing practical test seam for selected-channel config generation.
 
 ## Notes
 
 - Primary recorder backend decision: use GNU Radio with gr-osmosdr, matching the working Gqrx stack.
 - The first Record control is manually controlled and records Channel 16 continuously;
   squelch-gated segmenting remains a later step.
-- Channel 16 remains the only default-enabled/default-recording channel.
+- Channel 16 remains the default-selected/default-recording channel.
 - Channel selection and squelch settings are runtime-only for now; they are not persisted.
+- The previous dropdown/add/remove channel UI was useful for proving multiple
+  receiver branches, but it should be replaced rather than expanded.
+- Playback/multi-channel monitor behavior should be stabilized before adding
+  multi-channel recording controls.
 - The code should continue to keep the core library independent from GUI-specific behavior.
