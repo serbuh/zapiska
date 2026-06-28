@@ -98,20 +98,40 @@ void WaterfallWidget::paintEvent(QPaintEvent *event)
             continue;
         }
 
-        if (marker.playing) {
+        if (marker.unsquelched) {
+            painter.fillRect(
+                QRect(plotRect.left() + x - 3, plotRect.top(), 7, plotRect.height()),
+                QColor(255, 135, 30, 60));
+        } else if (marker.playing) {
             painter.fillRect(
                 QRect(plotRect.left() + x - 3, plotRect.top(), 7, plotRect.height()),
                 QColor(80, 255, 190, 40));
         }
 
-        const QColor lineColor = marker.playing
-            ? QColor(90, 255, 190, 240)
-            : (marker.selected ? QColor(255, 235, 120, 230) : QColor(210, 220, 230, 70));
-        painter.setPen(QPen(lineColor, marker.playing ? 3 : (marker.selected ? 2 : 1)));
+        QColor lineColor(210, 220, 230, 70);
+        int lineWidth = 1;
+        if (marker.unsquelched) {
+            lineColor = QColor(255, 135, 30, 245);
+            lineWidth = 3;
+        } else if (marker.playing) {
+            lineColor = QColor(90, 255, 190, 240);
+            lineWidth = 3;
+        } else if (marker.selected) {
+            lineColor = QColor(255, 235, 120, 230);
+            lineWidth = 2;
+        }
+
+        painter.setPen(QPen(lineColor, lineWidth));
         painter.drawLine(plotRect.left() + x, plotRect.top(), plotRect.left() + x, plotRect.bottom());
 
         if (marker.selected) {
-            painter.setPen(marker.playing ? QColor(190, 255, 225) : QColor(255, 245, 190));
+            QColor textColor(255, 245, 190);
+            if (marker.unsquelched) {
+                textColor = QColor(255, 230, 190);
+            } else if (marker.playing) {
+                textColor = QColor(190, 255, 225);
+            }
+            painter.setPen(textColor);
             painter.drawText(plotRect.left() + x + 3, plotRect.top() + 14, marker.name);
         }
     }

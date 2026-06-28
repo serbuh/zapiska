@@ -28,7 +28,7 @@ private:
     void loadChannels();
     void refreshChannelTable();
     void refreshChannelVisibility();
-    void refreshWaterfallChannels();
+    void refreshWaterfallChannels(const zapiska::SdrStreamStats *stats = nullptr);
     void refreshFftControls();
     void initializeSelectedChannels();
     bool loadSelectedChannelsFromSettings();

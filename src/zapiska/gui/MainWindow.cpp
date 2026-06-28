@@ -91,6 +91,17 @@ int meterValue(double value, double minimum, double maximum)
     return static_cast<int>(std::lround(normalized * 100.0));
 }
 
+bool channelUnsquelched(const zapiska::SdrStreamStats &stats, const QString &id)
+{
+    for (const auto &channelStats : stats.channelStats) {
+        if (channelStats.id == id) {
+            return channelStats.hasSquelch && channelStats.squelchOpen;
+        }
+    }
+
+    return false;
+}
+
 class SquelchSignalMeter : public QProgressBar
 {
 public:
@@ -520,8 +531,10 @@ void MainWindow::refreshChannelVisibility()
     showSelectedOnlyButton->setText(showSelectedOnly ? tr("Show All Channels") : tr("Show Selected Channels"));
 }
 
-void MainWindow::refreshWaterfallChannels()
+void MainWindow::refreshWaterfallChannels(const zapiska::SdrStreamStats *stats)
 {
+    const zapiska::SdrStreamStats streamStats = stats ? *stats : sdrSource.stats();
+
     QVector<WaterfallChannelMarker> markers;
     markers.reserve(channelCatalog.size());
     for (const auto &channel : channelCatalog) {
@@ -531,6 +544,7 @@ void MainWindow::refreshWaterfallChannels()
             channel.frequencyHz,
             selected,
             selected && liveAudioDesired && channelMonitorEnabledForChannel(channel.id),
+            selected && channelUnsquelched(streamStats, channel.id),
         });
     }
 
@@ -732,6 +746,7 @@ void MainWindow::handleSdrStatsUpdated(const zapiska::SdrStreamStats &stats)
     sampleCountLabel->setText(tr("Samples: %1").arg(formatSampleCount(stats.samplesRead)));
     widebandPowerLabel->setText(tr("Power: %1").arg(formatWidebandPower(stats)));
     updateChannelMeters(stats);
+    refreshWaterfallChannels(&stats);
     refreshSdrControls();
 
     if (!stats.lastError.isEmpty()) {

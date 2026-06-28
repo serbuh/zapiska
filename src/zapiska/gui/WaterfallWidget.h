@@ -13,6 +13,7 @@ struct WaterfallChannelMarker
     qint64 frequencyHz = 0;
     bool selected = false;
     bool playing = false;
+    bool unsquelched = false;
 };
 
 class WaterfallWidget final : public QWidget
