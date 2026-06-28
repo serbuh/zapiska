@@ -5,6 +5,7 @@
 
 #include <QHash>
 #include <QMainWindow>
+#include <QSet>
 #include <QVector>
 
 class QComboBox;
@@ -13,6 +14,7 @@ class QLabel;
 class QProgressBar;
 class QPushButton;
 class QTableWidget;
+class QTableWidgetItem;
 
 class MainWindow : public QMainWindow
 {
@@ -24,10 +26,14 @@ public:
 private:
     void buildUi();
     void loadChannels();
-    void populateChannelSelector();
     void refreshChannelTable();
+    void refreshChannelVisibility();
     void updateChannelCatalogLabel();
-    bool isChannelVisible(const QString &id) const;
+    void initializeSelectedChannels();
+    void updateChannelSelectionControls();
+    bool isChannelSelected(const QString &id) const;
+    int selectedChannelCount() const;
+    int visibleChannelCount() const;
 
     void toggleSdrConnection();
     void startSdr();
@@ -41,16 +47,16 @@ private:
     void updateSdrConfigLabels(const marine::SdrSourceConfig &config);
     marine::SdrSourceConfig buildSdrConfig() const;
     void updateChannelMeters(const marine::SdrStreamStats &stats);
-    int visibleChannelRow(const QString &id) const;
+    void resetChannelDisplay(int row);
+    int channelRow(const QString &id) const;
     bool channelHasRecordableAudio(const marine::SdrStreamStats &stats, const QString &id) const;
     QString nextRecordingPath() const;
     marine::SdrSquelchMode squelchModeForChannel(const QString &id) const;
     double squelchThresholdForChannel(const QString &id) const;
     void applyChannelSquelch(const QString &id);
 
-    void addSelectedChannel();
-    void removeSelectedChannel();
-    void updateRemoveButtonState();
+    void handleChannelItemChanged(QTableWidgetItem *item);
+    void toggleShowSelectedOnly(bool enabled);
 
     marine::GrOsmoSdrSource sdrSource;
 
@@ -66,13 +72,12 @@ private:
     QPushButton *stopButton = nullptr;
     QPushButton *monitorButton = nullptr;
     QPushButton *recordButton = nullptr;
-    QComboBox *channelSelector = nullptr;
-    QPushButton *addChannelButton = nullptr;
-    QPushButton *removeChannelButton = nullptr;
+    QPushButton *showSelectedOnlyButton = nullptr;
     QTableWidget *channelTable = nullptr;
 
     QHash<QString, marine::SdrSquelchMode> channelSquelchModes;
     QHash<QString, double> channelSquelchThresholds;
+    QSet<QString> selectedChannelIds;
     QVector<marine::ChannelConfig> channelCatalog;
-    QVector<marine::ChannelConfig> visibleChannels;
+    bool showSelectedOnly = false;
 };

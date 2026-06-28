@@ -13,6 +13,7 @@
 #include <QLocale>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QTableWidget>
@@ -30,6 +31,18 @@ constexpr double MaximumMeterPowerDbfs = -20.0;
 constexpr double MinimumAudioLevelDbfs = -80.0;
 constexpr double MaximumAudioLevelDbfs = 0.0;
 constexpr double DefaultSquelchThresholdDbfs = -45.0;
+
+constexpr int SelectedColumn = 0;
+constexpr int ChannelNameColumn = 1;
+constexpr int FrequencyColumn = 2;
+constexpr int ModeColumn = 3;
+constexpr int BandwidthColumn = 4;
+constexpr int SignalColumn = 5;
+constexpr int AudioColumn = 6;
+constexpr int SquelchColumn = 7;
+constexpr int ThresholdColumn = 8;
+constexpr int StateColumn = 9;
+constexpr int RecordingColumn = 10;
 
 QString sdrStateText(marine::SdrSourceState state)
 {
@@ -190,21 +203,17 @@ void MainWindow::buildUi()
     sdrMetricsLayout->addWidget(widebandPowerLabel);
     sdrMetricsLayout->addStretch();
 
-    channelSelector = new QComboBox(channelControls);
-    channelSelector->setMinimumWidth(260);
-    addChannelButton = new QPushButton(tr("Add Channel"), channelControls);
-    addChannelButton->setEnabled(false);
-    removeChannelButton = new QPushButton(tr("Remove Selected"), channelControls);
-    removeChannelButton->setEnabled(false);
+    showSelectedOnlyButton = new QPushButton(tr("Show Selected Only"), channelControls);
+    showSelectedOnlyButton->setCheckable(true);
 
-    channelControlsLayout->addWidget(new QLabel(tr("Catalog:"), channelControls));
-    channelControlsLayout->addWidget(channelSelector, 1);
-    channelControlsLayout->addWidget(addChannelButton);
-    channelControlsLayout->addWidget(removeChannelButton);
+    channelControlsLayout->addWidget(new QLabel(tr("Channel view:"), channelControls));
+    channelControlsLayout->addWidget(showSelectedOnlyButton);
+    channelControlsLayout->addStretch();
 
     channelTable = new QTableWidget(root);
-    channelTable->setColumnCount(10);
+    channelTable->setColumnCount(11);
     channelTable->setHorizontalHeaderLabels({
+        tr("Selected"),
         tr("Channel"),
         tr("Frequency"),
         tr("Mode"),
@@ -227,9 +236,8 @@ void MainWindow::buildUi()
     connect(stopButton, &QPushButton::clicked, this, &MainWindow::stopSdr);
     connect(monitorButton, &QPushButton::clicked, this, &MainWindow::toggleLiveAudio);
     connect(recordButton, &QPushButton::clicked, this, &MainWindow::toggleRecording);
-    connect(addChannelButton, &QPushButton::clicked, this, &MainWindow::addSelectedChannel);
-    connect(removeChannelButton, &QPushButton::clicked, this, &MainWindow::removeSelectedChannel);
-    connect(channelTable, &QTableWidget::itemSelectionChanged, this, &MainWindow::updateRemoveButtonState);
+    connect(showSelectedOnlyButton, &QPushButton::toggled, this, &MainWindow::toggleShowSelectedOnly);
+    connect(channelTable, &QTableWidget::itemChanged, this, &MainWindow::handleChannelItemChanged);
 
     layout->addWidget(toolbar);
     layout->addWidget(sdrMetrics);
@@ -247,69 +255,64 @@ void MainWindow::loadChannels()
     const QString path = marine::defaultChannelConfigPath();
     QString errorMessage;
     channelCatalog = marine::loadChannelsFromFile(path, &errorMessage);
-    visibleChannels.clear();
-
-    for (const auto &channel : channelCatalog) {
-        if (channel.enabledByDefault) {
-            visibleChannels.append(channel);
-        }
-    }
+    selectedChannelIds.clear();
 
     if (channelCatalog.isEmpty()) {
         channelCatalog = marine::defaultChannels();
-        visibleChannels = channelCatalog;
         channelCatalogLabel->setText(tr("Channels: fallback (%1)").arg(errorMessage));
     }
 
-    if (visibleChannels.isEmpty()) {
-        visibleChannels = channelCatalog;
-    }
-
-    populateChannelSelector();
+    initializeSelectedChannels();
     refreshChannelTable();
     updateChannelCatalogLabel();
-    addChannelButton->setEnabled(!channelCatalog.isEmpty());
 }
 
-void MainWindow::populateChannelSelector()
+void MainWindow::initializeSelectedChannels()
 {
-    channelSelector->clear();
+    for (const auto &channel : channelCatalog) {
+        if (channel.enabledByDefault || channel.id == QStringLiteral("16")) {
+            selectedChannelIds.insert(channel.id);
+        }
+    }
 
-    for (int index = 0; index < channelCatalog.size(); ++index) {
-        const auto &channel = channelCatalog.at(index);
-        const QString label = tr("%1 - %2 (%3)")
-            .arg(channel.name,
-                 marine::formatFrequencyMHz(channel.frequencyHz),
-                 channel.mode.toUpper());
-        channelSelector->addItem(label, index);
+    if (selectedChannelIds.isEmpty() && !channelCatalog.isEmpty()) {
+        selectedChannelIds.insert(channelCatalog.first().id);
     }
 }
 
 void MainWindow::refreshChannelTable()
 {
+    const QSignalBlocker blocker(channelTable);
     channelTable->clearContents();
-    channelTable->setRowCount(visibleChannels.size());
+    channelTable->setRowCount(channelCatalog.size());
 
-    for (int row = 0; row < visibleChannels.size(); ++row) {
-        const auto &channel = visibleChannels.at(row);
-        channelTable->setItem(row, 0, new QTableWidgetItem(channel.name));
-        channelTable->setItem(row, 1, new QTableWidgetItem(marine::formatFrequencyMHz(channel.frequencyHz)));
-        channelTable->setItem(row, 2, new QTableWidgetItem(channel.mode.toUpper()));
-        channelTable->setItem(row, 3, new QTableWidgetItem(QString::number(channel.bandwidthHz) + tr(" Hz")));
+    for (int row = 0; row < channelCatalog.size(); ++row) {
+        const auto &channel = channelCatalog.at(row);
+
+        auto *selectedItem = new QTableWidgetItem();
+        selectedItem->setData(Qt::UserRole, channel.id);
+        selectedItem->setCheckState(isChannelSelected(channel.id) ? Qt::Checked : Qt::Unchecked);
+        selectedItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsUserCheckable | Qt::ItemIsEnabled);
+        channelTable->setItem(row, SelectedColumn, selectedItem);
+
+        channelTable->setItem(row, ChannelNameColumn, new QTableWidgetItem(channel.name));
+        channelTable->setItem(row, FrequencyColumn, new QTableWidgetItem(marine::formatFrequencyMHz(channel.frequencyHz)));
+        channelTable->setItem(row, ModeColumn, new QTableWidgetItem(channel.mode.toUpper()));
+        channelTable->setItem(row, BandwidthColumn, new QTableWidgetItem(QString::number(channel.bandwidthHz) + tr(" Hz")));
 
         auto *signalMeter = new QProgressBar(channelTable);
         signalMeter->setRange(0, 100);
         signalMeter->setValue(0);
         signalMeter->setFormat(tr("waiting"));
         signalMeter->setTextVisible(true);
-        channelTable->setCellWidget(row, 4, signalMeter);
+        channelTable->setCellWidget(row, SignalColumn, signalMeter);
 
         auto *audioMeter = new QProgressBar(channelTable);
         audioMeter->setRange(0, 100);
         audioMeter->setValue(0);
         audioMeter->setFormat(tr("waiting"));
         audioMeter->setTextVisible(true);
-        channelTable->setCellWidget(row, 5, audioMeter);
+        channelTable->setCellWidget(row, AudioColumn, audioMeter);
 
         auto *squelchMode = new QComboBox(channelTable);
         squelchMode->addItem(tr("Auto"), static_cast<int>(marine::SdrSquelchMode::Automatic));
@@ -323,7 +326,7 @@ void MainWindow::refreshChannelTable()
             [this, id = channel.id]() {
                 applyChannelSquelch(id);
             });
-        channelTable->setCellWidget(row, 6, squelchMode);
+        channelTable->setCellWidget(row, SquelchColumn, squelchMode);
 
         auto *threshold = new QDoubleSpinBox(channelTable);
         threshold->setRange(-120.0, 0.0);
@@ -338,21 +341,75 @@ void MainWindow::refreshChannelTable()
             [this, id = channel.id]() {
                 applyChannelSquelch(id);
             });
-        channelTable->setCellWidget(row, 7, threshold);
+        channelTable->setCellWidget(row, ThresholdColumn, threshold);
 
-        channelTable->setItem(row, 8, new QTableWidgetItem(tr("waiting")));
-        channelTable->setItem(row, 9, new QTableWidgetItem(channel.recordByDefault ? tr("armed") : tr("off")));
+        channelTable->setItem(row, StateColumn, new QTableWidgetItem());
+        channelTable->setItem(row, RecordingColumn, new QTableWidgetItem());
+        resetChannelDisplay(row);
     }
 
     channelTable->resizeColumnsToContents();
-    updateRemoveButtonState();
+    refreshChannelVisibility();
+    updateChannelSelectionControls();
 }
 
 void MainWindow::updateChannelCatalogLabel()
 {
-    channelCatalogLabel->setText(tr("Channels: %1 loaded, %2 visible")
+    channelCatalogLabel->setText(tr("Channels: %1 loaded, %2 selected, %3 visible")
         .arg(channelCatalog.size())
-        .arg(visibleChannels.size()));
+        .arg(selectedChannelCount())
+        .arg(visibleChannelCount()));
+}
+
+void MainWindow::refreshChannelVisibility()
+{
+    for (int row = 0; row < channelCatalog.size(); ++row) {
+        const auto &channel = channelCatalog.at(row);
+        channelTable->setRowHidden(row, showSelectedOnly && !isChannelSelected(channel.id));
+    }
+}
+
+void MainWindow::updateChannelSelectionControls()
+{
+    const QSignalBlocker blocker(channelTable);
+    const auto state = sdrSource.state();
+    const bool canChangeSelection = state == marine::SdrSourceState::Closed
+        || state == marine::SdrSourceState::Error;
+
+    for (int row = 0; row < channelTable->rowCount(); ++row) {
+        auto *selectedItem = channelTable->item(row, SelectedColumn);
+        if (!selectedItem) {
+            continue;
+        }
+
+        Qt::ItemFlags flags = Qt::ItemIsSelectable | Qt::ItemIsUserCheckable;
+        if (canChangeSelection) {
+            flags |= Qt::ItemIsEnabled;
+        }
+        selectedItem->setFlags(flags);
+    }
+}
+
+bool MainWindow::isChannelSelected(const QString &id) const
+{
+    return selectedChannelIds.contains(id);
+}
+
+int MainWindow::selectedChannelCount() const
+{
+    return selectedChannelIds.size();
+}
+
+int MainWindow::visibleChannelCount() const
+{
+    int visibleRows = 0;
+    for (int row = 0; row < channelCatalog.size(); ++row) {
+        if (!showSelectedOnly || isChannelSelected(channelCatalog.at(row).id)) {
+            ++visibleRows;
+        }
+    }
+
+    return visibleRows;
 }
 
 void MainWindow::toggleSdrConnection()
@@ -492,6 +549,7 @@ void MainWindow::refreshSdrControls()
     recordButton->setText(recording ? tr("Stop Rec") : tr("Record"));
     recordButton->setEnabled(recording
         || (isStreaming && channelHasRecordableAudio(stats, QStringLiteral("16"))));
+    updateChannelSelectionControls();
 }
 
 void MainWindow::updateSdrConfigLabels(const marine::SdrSourceConfig &config)
@@ -505,9 +563,13 @@ void MainWindow::updateSdrConfigLabels(const marine::SdrSourceConfig &config)
 marine::SdrSourceConfig MainWindow::buildSdrConfig() const
 {
     marine::SdrSourceConfig config;
-    config.channels.reserve(visibleChannels.size());
+    config.channels.reserve(selectedChannelCount());
 
-    for (const auto &channel : visibleChannels) {
+    for (const auto &channel : channelCatalog) {
+        if (!isChannelSelected(channel.id)) {
+            continue;
+        }
+
         marine::SdrChannelConfig sdrChannel;
         sdrChannel.id = channel.id;
         sdrChannel.name = channel.name;
@@ -525,12 +587,16 @@ marine::SdrSourceConfig MainWindow::buildSdrConfig() const
 void MainWindow::updateChannelMeters(const marine::SdrStreamStats &streamStats)
 {
     for (const auto &stats : streamStats.channelStats) {
-        const int row = visibleChannelRow(stats.id);
+        if (!isChannelSelected(stats.id)) {
+            continue;
+        }
+
+        const int row = channelRow(stats.id);
         if (row < 0) {
             continue;
         }
 
-        auto *signalMeter = qobject_cast<QProgressBar *>(channelTable->cellWidget(row, 4));
+        auto *signalMeter = qobject_cast<QProgressBar *>(channelTable->cellWidget(row, SignalColumn));
         if (!signalMeter) {
             continue;
         }
@@ -540,7 +606,7 @@ void MainWindow::updateChannelMeters(const marine::SdrStreamStats &streamStats)
                 : 0);
         signalMeter->setFormat(formatChannelPower(stats));
 
-        auto *audioMeter = qobject_cast<QProgressBar *>(channelTable->cellWidget(row, 5));
+        auto *audioMeter = qobject_cast<QProgressBar *>(channelTable->cellWidget(row, AudioColumn));
         if (!audioMeter) {
             continue;
         }
@@ -550,16 +616,16 @@ void MainWindow::updateChannelMeters(const marine::SdrStreamStats &streamStats)
                 : 0);
         audioMeter->setFormat(formatAudioLevel(stats));
 
-        auto *squelchItem = channelTable->item(row, 8);
+        auto *squelchItem = channelTable->item(row, StateColumn);
         if (squelchItem) {
             squelchItem->setText(formatSquelchState(stats));
         }
 
-        auto *recordingItem = channelTable->item(row, 9);
+        auto *recordingItem = channelTable->item(row, RecordingColumn);
         if (recordingItem) {
             const bool channelRecording = streamStats.recording
                 && streamStats.recordingChannelId == stats.id;
-            const bool channelArmed = visibleChannels.at(row).recordByDefault;
+            const bool channelArmed = channelCatalog.at(row).recordByDefault;
             recordingItem->setText(channelRecording
                     ? tr("recording")
                     : (channelArmed ? tr("armed") : tr("off")));
@@ -567,10 +633,43 @@ void MainWindow::updateChannelMeters(const marine::SdrStreamStats &streamStats)
     }
 }
 
-int MainWindow::visibleChannelRow(const QString &id) const
+void MainWindow::resetChannelDisplay(int row)
 {
-    for (int row = 0; row < visibleChannels.size(); ++row) {
-        if (visibleChannels.at(row).id == id) {
+    if (row < 0 || row >= channelCatalog.size()) {
+        return;
+    }
+
+    const auto &channel = channelCatalog.at(row);
+    const bool selected = isChannelSelected(channel.id);
+    const QString idleText = selected ? tr("waiting") : tr("inactive");
+
+    auto *signalMeter = qobject_cast<QProgressBar *>(channelTable->cellWidget(row, SignalColumn));
+    if (signalMeter) {
+        signalMeter->setValue(0);
+        signalMeter->setFormat(idleText);
+    }
+
+    auto *audioMeter = qobject_cast<QProgressBar *>(channelTable->cellWidget(row, AudioColumn));
+    if (audioMeter) {
+        audioMeter->setValue(0);
+        audioMeter->setFormat(idleText);
+    }
+
+    auto *squelchItem = channelTable->item(row, StateColumn);
+    if (squelchItem) {
+        squelchItem->setText(idleText);
+    }
+
+    auto *recordingItem = channelTable->item(row, RecordingColumn);
+    if (recordingItem) {
+        recordingItem->setText(selected && channel.recordByDefault ? tr("armed") : tr("off"));
+    }
+}
+
+int MainWindow::channelRow(const QString &id) const
+{
+    for (int row = 0; row < channelCatalog.size(); ++row) {
+        if (channelCatalog.at(row).id == id) {
             return row;
         }
     }
@@ -612,13 +711,13 @@ double MainWindow::squelchThresholdForChannel(const QString &id) const
 
 void MainWindow::applyChannelSquelch(const QString &id)
 {
-    const int row = visibleChannelRow(id);
+    const int row = channelRow(id);
     if (row < 0) {
         return;
     }
 
-    const auto *modeCombo = qobject_cast<QComboBox *>(channelTable->cellWidget(row, 6));
-    const auto *thresholdSpin = qobject_cast<QDoubleSpinBox *>(channelTable->cellWidget(row, 7));
+    const auto *modeCombo = qobject_cast<QComboBox *>(channelTable->cellWidget(row, SquelchColumn));
+    const auto *thresholdSpin = qobject_cast<QDoubleSpinBox *>(channelTable->cellWidget(row, ThresholdColumn));
     if (!modeCombo || !thresholdSpin) {
         return;
     }
@@ -639,47 +738,52 @@ void MainWindow::applyChannelSquelch(const QString &id)
     }
 }
 
-bool MainWindow::isChannelVisible(const QString &id) const
+void MainWindow::handleChannelItemChanged(QTableWidgetItem *item)
 {
-    for (const auto &channel : visibleChannels) {
-        if (channel.id == id) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-void MainWindow::addSelectedChannel()
-{
-    const int catalogIndex = channelSelector->currentData().toInt();
-    if (catalogIndex < 0 || catalogIndex >= channelCatalog.size()) {
+    if (!item || item->column() != SelectedColumn) {
         return;
     }
 
-    const auto channel = channelCatalog.at(catalogIndex);
-    if (isChannelVisible(channel.id)) {
+    const QString id = item->data(Qt::UserRole).toString();
+    if (id.isEmpty()) {
         return;
     }
 
-    visibleChannels.append(channel);
-    refreshChannelTable();
+    const bool checked = item->checkState() == Qt::Checked;
+    const bool currentlySelected = selectedChannelIds.contains(id);
+    if (checked == currentlySelected) {
+        return;
+    }
+
+    const auto state = sdrSource.state();
+    if (state != marine::SdrSourceState::Closed && state != marine::SdrSourceState::Error) {
+        const QSignalBlocker blocker(channelTable);
+        item->setCheckState(currentlySelected ? Qt::Checked : Qt::Unchecked);
+        statusBar()->showMessage(tr("Channel selection is locked while the SDR is connected"), 3000);
+        return;
+    }
+
+    if (!checked && selectedChannelIds.size() == 1 && currentlySelected) {
+        const QSignalBlocker blocker(channelTable);
+        item->setCheckState(Qt::Checked);
+        statusBar()->showMessage(tr("At least one channel must stay selected"), 3000);
+        return;
+    }
+
+    if (checked) {
+        selectedChannelIds.insert(id);
+    } else {
+        selectedChannelIds.remove(id);
+    }
+
+    resetChannelDisplay(item->row());
+    refreshChannelVisibility();
     updateChannelCatalogLabel();
 }
 
-void MainWindow::removeSelectedChannel()
+void MainWindow::toggleShowSelectedOnly(bool enabled)
 {
-    const int row = channelTable->currentRow();
-    if (row < 0 || row >= visibleChannels.size()) {
-        return;
-    }
-
-    visibleChannels.removeAt(row);
-    refreshChannelTable();
+    showSelectedOnly = enabled;
+    refreshChannelVisibility();
     updateChannelCatalogLabel();
-}
-
-void MainWindow::updateRemoveButtonState()
-{
-    removeChannelButton->setEnabled(channelTable->currentRow() >= 0 && !visibleChannels.isEmpty());
 }
