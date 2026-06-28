@@ -30,6 +30,8 @@ private:
     void refreshChannelVisibility();
     void updateChannelCatalogLabel();
     void initializeSelectedChannels();
+    bool loadSelectedChannelsFromSettings();
+    void saveSelectedChannelsToSettings() const;
     void updateChannelSelectionControls();
     bool isChannelSelected(const QString &id) const;
     int selectedChannelCount() const;

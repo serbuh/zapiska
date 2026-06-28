@@ -13,9 +13,11 @@
 #include <QLocale>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QSettings>
 #include <QSignalBlocker>
 #include <QStandardPaths>
 #include <QStatusBar>
+#include <QStringList>
 #include <QTableWidget>
 #include <QTableWidgetItem>
 #include <QVBoxLayout>
@@ -269,6 +271,10 @@ void MainWindow::loadChannels()
 
 void MainWindow::initializeSelectedChannels()
 {
+    if (loadSelectedChannelsFromSettings()) {
+        return;
+    }
+
     for (const auto &channel : channelCatalog) {
         if (channel.enabledByDefault || channel.id == QStringLiteral("16")) {
             selectedChannelIds.insert(channel.id);
@@ -278,6 +284,43 @@ void MainWindow::initializeSelectedChannels()
     if (selectedChannelIds.isEmpty() && !channelCatalog.isEmpty()) {
         selectedChannelIds.insert(channelCatalog.first().id);
     }
+
+    saveSelectedChannelsToSettings();
+}
+
+bool MainWindow::loadSelectedChannelsFromSettings()
+{
+    QSettings settings;
+    if (!settings.contains(QStringLiteral("recorder/selectedChannelIds"))) {
+        return false;
+    }
+
+    QSet<QString> catalogIds;
+    for (const auto &channel : channelCatalog) {
+        catalogIds.insert(channel.id);
+    }
+
+    const QStringList storedIds = settings.value(QStringLiteral("recorder/selectedChannelIds")).toStringList();
+    for (const auto &id : storedIds) {
+        if (catalogIds.contains(id)) {
+            selectedChannelIds.insert(id);
+        }
+    }
+
+    return !selectedChannelIds.isEmpty();
+}
+
+void MainWindow::saveSelectedChannelsToSettings() const
+{
+    QStringList selectedIds;
+    for (const auto &channel : channelCatalog) {
+        if (isChannelSelected(channel.id)) {
+            selectedIds.append(channel.id);
+        }
+    }
+
+    QSettings settings;
+    settings.setValue(QStringLiteral("recorder/selectedChannelIds"), selectedIds);
 }
 
 void MainWindow::refreshChannelTable()
@@ -776,6 +819,7 @@ void MainWindow::handleChannelItemChanged(QTableWidgetItem *item)
         selectedChannelIds.remove(id);
     }
 
+    saveSelectedChannelsToSettings();
     resetChannelDisplay(item->row());
     refreshChannelVisibility();
     updateChannelCatalogLabel();
