@@ -91,11 +91,11 @@ SdrChannelConfig normalizedChannelConfig(const SdrChannelConfig &channel)
     return normalized;
 }
 
-bool squelchOpenFor(SdrSquelchMode mode, double levelDbfs, double thresholdDbfs)
+bool squelchOpenFor(SdrSquelchMode mode, double signalPowerDbfs, double thresholdDbfs)
 {
     switch (mode) {
     case SdrSquelchMode::Automatic:
-        return levelDbfs >= thresholdDbfs;
+        return signalPowerDbfs >= thresholdDbfs;
     case SdrSquelchMode::ForcedOpen:
         return true;
     case SdrSquelchMode::ForcedClosed:
@@ -144,7 +144,7 @@ struct ChannelReceiver::Impl
         stats.monitorEnabled = channel.monitorEnabled;
         if (stats.squelchMode != SdrSquelchMode::Automatic) {
             stats.hasSquelch = true;
-            stats.squelchOpen = squelchOpenFor(stats.squelchMode, stats.audioLevelDbfs, stats.squelchThresholdDbfs);
+            stats.squelchOpen = squelchOpenFor(stats.squelchMode, stats.powerDbfs, stats.squelchThresholdDbfs);
         }
 
         translatingFilter = gr::filter::freq_xlating_fir_filter_ccf::make(
@@ -161,6 +161,11 @@ struct ChannelReceiver::Impl
                     stats.samplesRead = update.samplesRead;
                     stats.hasPower = true;
                     stats.powerDbfs = update.powerDbfs;
+                    stats.hasSquelch = true;
+                    stats.squelchOpen = squelchOpenFor(
+                        stats.squelchMode,
+                        update.powerDbfs,
+                        stats.squelchThresholdDbfs);
                     updateStats = stats;
                 }
                 if (this->callback) {
@@ -178,11 +183,6 @@ struct ChannelReceiver::Impl
                     stats.audioSamplesRead = update.samplesRead;
                     stats.hasAudioLevel = true;
                     stats.audioLevelDbfs = update.levelDbfs;
-                    stats.hasSquelch = true;
-                    stats.squelchOpen = squelchOpenFor(
-                        stats.squelchMode,
-                        update.levelDbfs,
-                        stats.squelchThresholdDbfs);
                     updateStats = stats;
                 }
                 if (this->callback) {
@@ -233,11 +233,11 @@ void ChannelReceiver::setSquelch(SdrSquelchMode mode, double thresholdDbfs)
         impl->stats.squelchThresholdDbfs = thresholdDbfs > 0.0
             ? DefaultSquelchThresholdDbfs
             : thresholdDbfs;
-        if (impl->stats.squelchMode != SdrSquelchMode::Automatic || impl->stats.hasAudioLevel) {
+        if (impl->stats.squelchMode != SdrSquelchMode::Automatic || impl->stats.hasPower) {
             impl->stats.hasSquelch = true;
             impl->stats.squelchOpen = squelchOpenFor(
                 impl->stats.squelchMode,
-                impl->stats.audioLevelDbfs,
+                impl->stats.powerDbfs,
                 impl->stats.squelchThresholdDbfs);
         } else {
             impl->stats.hasSquelch = false;
