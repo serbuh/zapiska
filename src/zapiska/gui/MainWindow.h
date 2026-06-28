@@ -11,7 +11,6 @@
 class QComboBox;
 class QDoubleSpinBox;
 class QLabel;
-class QProgressBar;
 class QPushButton;
 class QTableWidget;
 class QTableWidgetItem;

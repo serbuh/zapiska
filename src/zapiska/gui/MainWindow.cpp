@@ -31,8 +31,6 @@ namespace {
 
 constexpr double MinimumMeterPowerDbfs = -100.0;
 constexpr double MaximumMeterPowerDbfs = -20.0;
-constexpr double MinimumAudioLevelDbfs = -80.0;
-constexpr double MaximumAudioLevelDbfs = 0.0;
 constexpr double DefaultSquelchThresholdDbfs = -45.0;
 constexpr double ResetSquelchThresholdDbfs = -150.0;
 constexpr double AutoSquelchOffsetDb = 3.0;
@@ -42,11 +40,10 @@ constexpr int SelectedColumn = 0;
 constexpr int ChannelNameColumn = 1;
 constexpr int FrequencyColumn = 2;
 constexpr int SignalColumn = 3;
-constexpr int AudioColumn = 4;
-constexpr int MonitorColumn = 5;
-constexpr int ThresholdColumn = 6;
-constexpr int StateColumn = 7;
-constexpr int RecordingColumn = 8;
+constexpr int MonitorColumn = 4;
+constexpr int ThresholdColumn = 5;
+constexpr int StateColumn = 6;
+constexpr int RecordingColumn = 7;
 
 QString formatSampleCount(quint64 samplesRead)
 {
@@ -69,15 +66,6 @@ QString formatChannelPower(const zapiska::SdrChannelStats &stats)
     }
 
     return QLocale::c().toString(stats.powerDbfs, 'f', 1) + QStringLiteral(" dBFS");
-}
-
-QString formatAudioLevel(const zapiska::SdrChannelStats &stats)
-{
-    if (!stats.hasAudioLevel) {
-        return QStringLiteral("waiting");
-    }
-
-    return QLocale::c().toString(stats.audioLevelDbfs, 'f', 1) + QStringLiteral(" dBFS");
 }
 
 QString formatSquelchState(const zapiska::SdrChannelStats &stats)
@@ -195,13 +183,12 @@ void MainWindow::buildUi()
     channelControlsLayout->addStretch();
 
     channelTable = new QTableWidget(root);
-    channelTable->setColumnCount(9);
+    channelTable->setColumnCount(8);
     channelTable->setHorizontalHeaderLabels({
         tr("Selected"),
         tr("Ch"),
         tr("Freq (MHz)"),
         tr("Signal"),
-        tr("Audio"),
         tr("Playback"),
         tr("Threshold"),
         tr("State"),
@@ -417,13 +404,6 @@ void MainWindow::refreshChannelTable()
         signalMeter->setFormat(tr("waiting"));
         signalMeter->setTextVisible(true);
         channelTable->setCellWidget(row, SignalColumn, signalMeter);
-
-        auto *audioMeter = new QProgressBar(channelTable);
-        audioMeter->setRange(0, 100);
-        audioMeter->setValue(0);
-        audioMeter->setFormat(tr("waiting"));
-        audioMeter->setTextVisible(true);
-        channelTable->setCellWidget(row, AudioColumn, audioMeter);
 
         auto *rowMonitorButton = new QPushButton(channelTable);
         connect(rowMonitorButton, &QPushButton::clicked, this, [this, id = channel.id]() {
@@ -813,16 +793,6 @@ void MainWindow::updateChannelMeters(const zapiska::SdrStreamStats &streamStats)
                 : 0);
         signalMeter->setFormat(formatChannelPower(stats));
 
-        auto *audioMeter = qobject_cast<QProgressBar *>(channelTable->cellWidget(row, AudioColumn));
-        if (!audioMeter) {
-            continue;
-        }
-
-        audioMeter->setValue(stats.hasAudioLevel
-                ? meterValue(stats.audioLevelDbfs, MinimumAudioLevelDbfs, MaximumAudioLevelDbfs)
-                : 0);
-        audioMeter->setFormat(formatAudioLevel(stats));
-
         auto *squelchItem = channelTable->item(row, StateColumn);
         if (squelchItem) {
             squelchItem->setText(formatSquelchState(stats));
@@ -854,12 +824,6 @@ void MainWindow::resetChannelDisplay(int row)
     if (signalMeter) {
         signalMeter->setValue(0);
         signalMeter->setFormat(idleText);
-    }
-
-    auto *audioMeter = qobject_cast<QProgressBar *>(channelTable->cellWidget(row, AudioColumn));
-    if (audioMeter) {
-        audioMeter->setValue(0);
-        audioMeter->setFormat(idleText);
     }
 
     auto *squelchItem = channelTable->item(row, StateColumn);
