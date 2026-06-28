@@ -15,6 +15,7 @@ class QProgressBar;
 class QPushButton;
 class QTableWidget;
 class QTableWidgetItem;
+class WaterfallWidget;
 
 class MainWindow : public QMainWindow
 {
@@ -28,6 +29,8 @@ private:
     void loadChannels();
     void refreshChannelTable();
     void refreshChannelVisibility();
+    void refreshWaterfallChannels();
+    void refreshFftControls();
     void initializeSelectedChannels();
     bool loadSelectedChannelsFromSettings();
     void saveSelectedChannelsToSettings() const;
@@ -48,6 +51,7 @@ private:
     void toggleRecording();
     void handleSdrStateChanged(marine::SdrSourceState state);
     void handleSdrStatsUpdated(const marine::SdrStreamStats &stats);
+    void handleSpectrumUpdated(const marine::SdrSpectrumFrame &frame);
     void handleSdrError(const QString &message);
     void refreshSdrControls();
     void updateSdrConfigLabels(const marine::SdrSourceConfig &config);
@@ -63,6 +67,7 @@ private:
 
     void handleChannelItemChanged(QTableWidgetItem *item);
     void toggleChannelMonitor(const QString &id);
+    void toggleFftVisible();
     void toggleShowSelectedOnly(bool enabled);
 
     marine::GrOsmoSdrSource sdrSource;
@@ -76,7 +81,9 @@ private:
     QPushButton *startButton = nullptr;
     QPushButton *monitorButton = nullptr;
     QPushButton *recordButton = nullptr;
+    QPushButton *fftButton = nullptr;
     QPushButton *showSelectedOnlyButton = nullptr;
+    WaterfallWidget *waterfallWidget = nullptr;
     QTableWidget *channelTable = nullptr;
 
     QHash<QString, marine::SdrSquelchMode> channelSquelchModes;
@@ -85,5 +92,6 @@ private:
     QSet<QString> mutedMonitorChannelIds;
     QVector<marine::ChannelConfig> channelCatalog;
     bool showSelectedOnly = true;
+    bool fftVisible = true;
     bool liveAudioDesired = true;
 };

@@ -1,6 +1,7 @@
 #include "MainWindow.h"
 
 #include "MarineCore.h"
+#include "WaterfallWidget.h"
 
 #include <QAbstractItemView>
 #include <QComboBox>
@@ -128,6 +129,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     buildUi();
     connect(&sdrSource, &marine::SdrSource::stateChanged, this, &MainWindow::handleSdrStateChanged);
+    connect(&sdrSource, &marine::SdrSource::spectrumUpdated, this, &MainWindow::handleSpectrumUpdated);
     connect(&sdrSource, &marine::SdrSource::statsUpdated, this, &MainWindow::handleSdrStatsUpdated);
     connect(&sdrSource, &marine::SdrSource::errorOccurred, this, &MainWindow::handleSdrError);
     handleSdrStateChanged(sdrSource.state());
@@ -166,6 +168,7 @@ void MainWindow::buildUi()
     monitorButton->setEnabled(false);
     recordButton = new QPushButton(tr("Record"), toolbar);
     recordButton->setEnabled(false);
+    waterfallWidget = new WaterfallWidget(root);
 
     toolbarLayout->addWidget(connectButton);
     toolbarLayout->addWidget(startButton);
@@ -182,9 +185,11 @@ void MainWindow::buildUi()
     sdrMetricsLayout->addWidget(widebandPowerLabel);
     sdrMetricsLayout->addStretch();
 
+    fftButton = new QPushButton(tr("FFT Off"), channelControls);
     showSelectedOnlyButton = new QPushButton(tr("Show All Channels"), channelControls);
 
-    channelControlsLayout->addWidget(new QLabel(tr("Channel view:"), channelControls));
+    channelControlsLayout->addWidget(new QLabel(tr("Display:"), channelControls));
+    channelControlsLayout->addWidget(fftButton);
     channelControlsLayout->addWidget(showSelectedOnlyButton);
     channelControlsLayout->addStretch();
 
@@ -214,6 +219,7 @@ void MainWindow::buildUi()
     connect(startButton, &QPushButton::clicked, this, &MainWindow::toggleSdrStreaming);
     connect(monitorButton, &QPushButton::clicked, this, &MainWindow::toggleLiveAudio);
     connect(recordButton, &QPushButton::clicked, this, &MainWindow::toggleRecording);
+    connect(fftButton, &QPushButton::clicked, this, &MainWindow::toggleFftVisible);
     connect(showSelectedOnlyButton, &QPushButton::clicked, this, [this]() {
         toggleShowSelectedOnly(!showSelectedOnly);
     });
@@ -222,12 +228,14 @@ void MainWindow::buildUi()
     layout->addWidget(toolbar);
     layout->addWidget(sdrMetrics);
     layout->addWidget(sdrStatusLabel);
+    layout->addWidget(waterfallWidget);
     layout->addWidget(channelControls);
     layout->addWidget(channelTable);
 
     setCentralWidget(root);
     setWindowTitle(tr("Zapiska Marine Recorder"));
     resize(900, 420);
+    refreshFftControls();
 }
 
 void MainWindow::loadChannels()
@@ -245,6 +253,7 @@ void MainWindow::loadChannels()
     initializeSelectedChannels();
     loadChannelMonitorSettings();
     refreshChannelTable();
+    refreshWaterfallChannels();
 }
 
 void MainWindow::initializeSelectedChannels()
@@ -425,6 +434,29 @@ void MainWindow::refreshChannelVisibility()
     showSelectedOnlyButton->setText(showSelectedOnly ? tr("Show All Channels") : tr("Show Selected Channels"));
 }
 
+void MainWindow::refreshWaterfallChannels()
+{
+    QVector<WaterfallChannelMarker> markers;
+    markers.reserve(channelCatalog.size());
+    for (const auto &channel : channelCatalog) {
+        const bool selected = isChannelSelected(channel.id);
+        markers.append(WaterfallChannelMarker {
+            channel.name,
+            channel.frequencyHz,
+            selected,
+            selected && liveAudioDesired && channelMonitorEnabledForChannel(channel.id),
+        });
+    }
+
+    waterfallWidget->setChannelMarkers(markers);
+}
+
+void MainWindow::refreshFftControls()
+{
+    waterfallWidget->setVisible(fftVisible);
+    fftButton->setText(fftVisible ? tr("FFT Off") : tr("FFT On"));
+}
+
 void MainWindow::updateChannelSelectionControls()
 {
     const QSignalBlocker blocker(channelTable);
@@ -506,6 +538,7 @@ void MainWindow::toggleSdrConnection()
         liveAudioDesired = false;
         applyLiveAudioDesiredState();
     }
+    refreshWaterfallChannels();
     refreshSdrControls();
 }
 
@@ -549,12 +582,14 @@ void MainWindow::toggleLiveAudio()
     if (!applyLiveAudioDesiredState()) {
         liveAudioDesired = previousDesired;
         applyLiveAudioDesiredState();
+        refreshWaterfallChannels();
         refreshSdrControls();
         return;
     }
 
     sdrStatusLabel->setText(liveAudioDesired ? tr("SDR: playback enabled") : tr("SDR: playback muted"));
     statusBar()->showMessage(liveAudioDesired ? tr("Playback enabled") : tr("Playback muted"), 3000);
+    refreshWaterfallChannels();
     refreshSdrControls();
 }
 
@@ -615,6 +650,15 @@ void MainWindow::handleSdrStatsUpdated(const marine::SdrStreamStats &stats)
     if (!stats.lastError.isEmpty()) {
         handleSdrError(stats.lastError);
     }
+}
+
+void MainWindow::handleSpectrumUpdated(const marine::SdrSpectrumFrame &frame)
+{
+    if (!fftVisible) {
+        return;
+    }
+
+    waterfallWidget->setSpectrumFrame(frame);
 }
 
 void MainWindow::handleSdrError(const QString &message)
@@ -878,6 +922,7 @@ void MainWindow::handleChannelItemChanged(QTableWidgetItem *item)
     saveSelectedChannelsToSettings();
     resetChannelDisplay(item->row());
     refreshChannelVisibility();
+    refreshWaterfallChannels();
 }
 
 void MainWindow::toggleChannelMonitor(const QString &id)
@@ -912,9 +957,16 @@ void MainWindow::toggleChannelMonitor(const QString &id)
 
     saveChannelMonitorSettings();
     updateChannelMonitorButton(row);
+    refreshWaterfallChannels();
     statusBar()->showMessage(
         nextEnabled ? tr("Channel playback enabled") : tr("Channel playback muted"),
         3000);
+}
+
+void MainWindow::toggleFftVisible()
+{
+    fftVisible = !fftVisible;
+    refreshFftControls();
 }
 
 void MainWindow::toggleShowSelectedOnly(bool enabled)

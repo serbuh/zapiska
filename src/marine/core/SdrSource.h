@@ -99,6 +99,14 @@ struct IqBlock
     qint64 timestampUsec = 0;
 };
 
+struct SdrSpectrumFrame
+{
+    qint64 centerFrequencyHz = 0;
+    int sampleRateHz = 0;
+    quint64 samplesRead = 0;
+    QVector<float> powerDbfs;
+};
+
 class SdrSource : public QObject
 {
     Q_OBJECT
@@ -134,6 +142,7 @@ public:
 signals:
     void stateChanged(marine::SdrSourceState state);
     void iqBlockReady(const marine::IqBlock &block);
+    void spectrumUpdated(const marine::SdrSpectrumFrame &frame);
     void statsUpdated(const marine::SdrStreamStats &stats);
     void errorOccurred(const QString &message);
 };
@@ -150,3 +159,4 @@ Q_DECLARE_METATYPE(marine::SdrSourceConfig)
 Q_DECLARE_METATYPE(marine::SdrChannelStats)
 Q_DECLARE_METATYPE(marine::SdrStreamStats)
 Q_DECLARE_METATYPE(marine::IqBlock)
+Q_DECLARE_METATYPE(marine::SdrSpectrumFrame)

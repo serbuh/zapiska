@@ -21,6 +21,7 @@ void registerSdrSourceMetaTypes()
     qRegisterMetaType<marine::SdrChannelStats>("marine::SdrChannelStats");
     qRegisterMetaType<marine::SdrStreamStats>("marine::SdrStreamStats");
     qRegisterMetaType<marine::IqBlock>("marine::IqBlock");
+    qRegisterMetaType<marine::SdrSpectrumFrame>("marine::SdrSpectrumFrame");
 }
 
 } // namespace marine

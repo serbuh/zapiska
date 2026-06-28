@@ -7,6 +7,8 @@
 #include <QTemporaryFile>
 #include <QThread>
 
+#include <atomic>
+
 namespace {
 
 QString valueAfter(const QStringList &args, const QString &name)
@@ -165,6 +167,17 @@ int main(int argc, char *argv[])
     }
 
     marine::GrOsmoSdrSource source;
+    std::atomic<int> spectrumFrames { 0 };
+    QObject::connect(
+        &source,
+        &marine::SdrSource::spectrumUpdated,
+        &source,
+        [&spectrumFrames](const marine::SdrSpectrumFrame &frame) {
+            if (!frame.powerDbfs.isEmpty()) {
+                ++spectrumFrames;
+            }
+        },
+        Qt::DirectConnection);
 
     QString error;
     if (args.contains(QStringLiteral("--discover"))) {
@@ -259,6 +272,10 @@ int main(int argc, char *argv[])
     if (finalStats.channelStats.first().audioSamplesRead == 0) {
         qCritical() << "smoke failed: no demodulated audio samples were read";
         return 10;
+    }
+    if (spectrumFrames.load() == 0) {
+        qCritical() << "smoke failed: no spectrum frame was produced";
+        return 16;
     }
     if (!finalStats.channelStats.first().hasAudioLevel) {
         qCritical() << "smoke failed: no audio level update was produced";

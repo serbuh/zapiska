@@ -1,6 +1,7 @@
 #include "GrOsmoSdrSource.h"
 
 #include "ChannelReceiver.h"
+#include "IqFftSink.h"
 #include "IqPowerSink.h"
 
 #include <QDir>
@@ -27,6 +28,8 @@ namespace {
 
 constexpr const char *DefaultDeviceArgs = "hackrf=0";
 constexpr int PowerReportsPerSecond = 20;
+constexpr int SpectrumReportsPerSecond = 8;
+constexpr int SpectrumFftSize = 1024;
 
 QString valueOrEmpty(const osmosdr::device_t &device, const std::string &key)
 {
@@ -72,6 +75,11 @@ quint64 powerReportIntervalSamples(int sampleRateHz)
     return static_cast<quint64>(std::max(sampleRateHz / PowerReportsPerSecond, 1));
 }
 
+quint64 spectrumReportIntervalSamples(int sampleRateHz)
+{
+    return static_cast<quint64>(std::max(sampleRateHz / SpectrumReportsPerSecond, 1));
+}
+
 QVector<SdrChannelConfig> defaultChannelConfigs()
 {
     SdrChannelConfig channel;
@@ -111,6 +119,7 @@ struct GrOsMoBlocks
     gr::top_block_sptr topBlock;
     osmosdr::source::sptr source;
     IqPowerSink::sptr powerSink;
+    IqFftSink::sptr fftSink;
     std::vector<ChannelReceiver::sptr> channelReceivers;
     std::vector<QString> channelIds;
     std::vector<gr::blocks::multiply_const_ff::sptr> audioGains;
@@ -187,6 +196,11 @@ struct GrOsmoSdrSource::Impl
             statsSnapshot = activeStats;
         }
         emit owner->statsUpdated(statsSnapshot);
+    }
+
+    void updateSpectrum(const SdrSpectrumFrame &frame)
+    {
+        emit owner->spectrumUpdated(frame);
     }
 
     void refreshLiveAudioGains()
@@ -718,6 +732,15 @@ bool GrOsmoSdrSource::open(const SdrSourceConfig &config, QString *errorMessage)
                 sourceImpl->updatePower(update);
             });
         blocks.topBlock->connect(blocks.source, 0, blocks.powerSink, 0);
+        blocks.fftSink = IqFftSink::make(
+            SpectrumFftSize,
+            spectrumReportIntervalSamples(actualSampleRateHz),
+            static_cast<qint64>(blocks.source->get_center_freq()),
+            actualSampleRateHz,
+            [sourceImpl = impl.get()](const SdrSpectrumFrame &frame) {
+                sourceImpl->updateSpectrum(frame);
+            });
+        blocks.topBlock->connect(blocks.source, 0, blocks.fftSink, 0);
 
         QVector<SdrChannelStats> initialChannelStats;
         const auto channels = enabledChannelConfigs(config);

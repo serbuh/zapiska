@@ -5,6 +5,8 @@ add_library(marine-core STATIC
     core/ChannelReceiver.h
     core/GrOsmoSdrSource.cpp
     core/GrOsmoSdrSource.h
+    core/IqFftSink.cpp
+    core/IqFftSink.h
     core/IqPowerSink.cpp
     core/IqPowerSink.h
     core/MarineCore.cpp
@@ -37,6 +39,8 @@ target_link_libraries(marine-core
 add_executable(marine-recorder-gui
     recorder_gui/MainWindow.cpp
     recorder_gui/MainWindow.h
+    recorder_gui/WaterfallWidget.cpp
+    recorder_gui/WaterfallWidget.h
     recorder_gui/main.cpp
 )
 
