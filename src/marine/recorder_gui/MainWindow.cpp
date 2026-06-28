@@ -4,13 +4,16 @@
 
 #include <QAbstractItemView>
 #include <QComboBox>
+#include <QDateTime>
 #include <QDoubleSpinBox>
+#include <QDir>
 #include <QHeaderView>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLocale>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QStandardPaths>
 #include <QStatusBar>
 #include <QTableWidget>
 #include <QTableWidgetItem>
@@ -223,6 +226,7 @@ void MainWindow::buildUi()
     connect(startButton, &QPushButton::clicked, this, &MainWindow::startSdr);
     connect(stopButton, &QPushButton::clicked, this, &MainWindow::stopSdr);
     connect(monitorButton, &QPushButton::clicked, this, &MainWindow::toggleLiveAudio);
+    connect(recordButton, &QPushButton::clicked, this, &MainWindow::toggleRecording);
     connect(addChannelButton, &QPushButton::clicked, this, &MainWindow::addSelectedChannel);
     connect(removeChannelButton, &QPushButton::clicked, this, &MainWindow::removeSelectedChannel);
     connect(channelTable, &QTableWidget::itemSelectionChanged, this, &MainWindow::updateRemoveButtonState);
@@ -415,6 +419,30 @@ void MainWindow::toggleLiveAudio()
     refreshSdrControls();
 }
 
+void MainWindow::toggleRecording()
+{
+    if (sdrSource.recording()) {
+        const QString recordingPath = sdrSource.stats().recordingPath;
+        sdrSource.stopRecording();
+        sdrStatusLabel->setText(tr("SDR: recording stopped"));
+        statusBar()->showMessage(tr("Recording saved to %1").arg(recordingPath), 6000);
+        refreshSdrControls();
+        return;
+    }
+
+    const QString recordingPath = nextRecordingPath();
+    QString errorMessage;
+    if (!sdrSource.startRecording(QStringLiteral("16"), recordingPath, &errorMessage)) {
+        handleSdrError(errorMessage);
+        refreshSdrControls();
+        return;
+    }
+
+    sdrStatusLabel->setText(tr("SDR: recording Channel 16"));
+    statusBar()->showMessage(tr("Recording to %1").arg(recordingPath), 6000);
+    refreshSdrControls();
+}
+
 void MainWindow::handleSdrStateChanged(marine::SdrSourceState state)
 {
     deviceStateLabel->setText(tr("Backend: %1 (%2)")
@@ -427,7 +455,8 @@ void MainWindow::handleSdrStatsUpdated(const marine::SdrStreamStats &stats)
 {
     sampleCountLabel->setText(tr("Samples: %1").arg(formatSampleCount(stats.samplesRead)));
     widebandPowerLabel->setText(tr("Power: %1").arg(formatWidebandPower(stats)));
-    updateChannelMeters(stats.channelStats);
+    updateChannelMeters(stats);
+    refreshSdrControls();
 
     if (!stats.lastError.isEmpty()) {
         handleSdrError(stats.lastError);
@@ -451,6 +480,8 @@ void MainWindow::refreshSdrControls()
         || state == marine::SdrSourceState::Streaming;
     const bool isStreaming = state == marine::SdrSourceState::Streaming;
     const bool liveAudioEnabled = sdrSource.liveAudioEnabled();
+    const marine::SdrStreamStats stats = sdrSource.stats();
+    const bool recording = stats.recording;
 
     connectButton->setText(isOpen ? tr("Disconnect") : tr("Connect"));
     connectButton->setEnabled(true);
@@ -458,7 +489,9 @@ void MainWindow::refreshSdrControls()
     stopButton->setEnabled(isStreaming);
     monitorButton->setText(liveAudioEnabled ? tr("Mute") : tr("Monitor"));
     monitorButton->setEnabled(isOpen);
-    recordButton->setEnabled(false);
+    recordButton->setText(recording ? tr("Stop Rec") : tr("Record"));
+    recordButton->setEnabled(recording
+        || (isStreaming && channelHasRecordableAudio(stats, QStringLiteral("16"))));
 }
 
 void MainWindow::updateSdrConfigLabels(const marine::SdrSourceConfig &config)
@@ -489,9 +522,9 @@ marine::SdrSourceConfig MainWindow::buildSdrConfig() const
     return config;
 }
 
-void MainWindow::updateChannelMeters(const QVector<marine::SdrChannelStats> &channelStats)
+void MainWindow::updateChannelMeters(const marine::SdrStreamStats &streamStats)
 {
-    for (const auto &stats : channelStats) {
+    for (const auto &stats : streamStats.channelStats) {
         const int row = visibleChannelRow(stats.id);
         if (row < 0) {
             continue;
@@ -521,6 +554,16 @@ void MainWindow::updateChannelMeters(const QVector<marine::SdrChannelStats> &cha
         if (squelchItem) {
             squelchItem->setText(formatSquelchState(stats));
         }
+
+        auto *recordingItem = channelTable->item(row, 9);
+        if (recordingItem) {
+            const bool channelRecording = streamStats.recording
+                && streamStats.recordingChannelId == stats.id;
+            const bool channelArmed = visibleChannels.at(row).recordByDefault;
+            recordingItem->setText(channelRecording
+                    ? tr("recording")
+                    : (channelArmed ? tr("armed") : tr("off")));
+        }
     }
 }
 
@@ -533,6 +576,28 @@ int MainWindow::visibleChannelRow(const QString &id) const
     }
 
     return -1;
+}
+
+bool MainWindow::channelHasRecordableAudio(const marine::SdrStreamStats &stats, const QString &id) const
+{
+    for (const auto &channelStats : stats.channelStats) {
+        if (channelStats.id == id && channelStats.audioSampleRateHz > 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+QString MainWindow::nextRecordingPath() const
+{
+    QString basePath = QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
+    if (basePath.isEmpty()) {
+        basePath = QDir::currentPath();
+    }
+
+    const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss"));
+    return QDir(basePath).filePath(QStringLiteral("Zapiska/marine_ch16_%1.wav").arg(timestamp));
 }
 
 marine::SdrSquelchMode MainWindow::squelchModeForChannel(const QString &id) const

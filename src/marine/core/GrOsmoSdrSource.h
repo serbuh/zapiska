@@ -22,6 +22,11 @@ public:
     void stop() override;
     bool setLiveAudioEnabled(bool enabled, QString *errorMessage = nullptr) override;
     bool liveAudioEnabled() const override;
+    bool startRecording(const QString &channelId,
+        const QString &filePath,
+        QString *errorMessage = nullptr) override;
+    void stopRecording() override;
+    bool recording() const override;
     bool setChannelSquelch(const QString &channelId,
         SdrSquelchMode mode,
         double thresholdDbfs,

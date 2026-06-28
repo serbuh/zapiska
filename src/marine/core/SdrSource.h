@@ -77,6 +77,9 @@ struct SdrStreamStats
 {
     bool running = false;
     bool liveAudioEnabled = false;
+    bool recording = false;
+    QString recordingChannelId;
+    QString recordingPath;
     quint64 samplesRead = 0;
     quint64 droppedSamples = 0;
     bool hasWidebandPower = false;
@@ -110,6 +113,11 @@ public:
     virtual void stop() = 0;
     virtual bool setLiveAudioEnabled(bool enabled, QString *errorMessage = nullptr) = 0;
     virtual bool liveAudioEnabled() const = 0;
+    virtual bool startRecording(const QString &channelId,
+        const QString &filePath,
+        QString *errorMessage = nullptr) = 0;
+    virtual void stopRecording() = 0;
+    virtual bool recording() const = 0;
     virtual bool setChannelSquelch(const QString &channelId,
         SdrSquelchMode mode,
         double thresholdDbfs,

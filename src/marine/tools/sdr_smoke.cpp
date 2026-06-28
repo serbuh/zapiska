@@ -3,6 +3,7 @@
 #include <QCoreApplication>
 #include <QDebug>
 #include <QFile>
+#include <QTemporaryDir>
 #include <QTemporaryFile>
 #include <QThread>
 
@@ -16,6 +17,12 @@ QString valueAfter(const QStringList &args, const QString &name)
     }
 
     return args.at(index + 1);
+}
+
+QString optionalValueAfter(const QStringList &args, const QString &name)
+{
+    const QString value = valueAfter(args, name);
+    return value.startsWith(QStringLiteral("--")) ? QString() : value;
 }
 
 int intValueAfter(const QStringList &args, const QString &name, int fallback)
@@ -39,6 +46,41 @@ QString defaultFileDeviceArgs(QTemporaryFile &file)
 {
     return QStringLiteral("file=%1,rate=96000,freq=156800000,repeat=true,throttle=true")
         .arg(file.fileName());
+}
+
+quint32 littleEndianUInt32(const QByteArray &bytes, int offset)
+{
+    return static_cast<quint32>(static_cast<unsigned char>(bytes.at(offset)))
+        | (static_cast<quint32>(static_cast<unsigned char>(bytes.at(offset + 1))) << 8)
+        | (static_cast<quint32>(static_cast<unsigned char>(bytes.at(offset + 2))) << 16)
+        | (static_cast<quint32>(static_cast<unsigned char>(bytes.at(offset + 3))) << 24);
+}
+
+quint32 wavDataBytes(const QString &path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return 0;
+    }
+
+    const QByteArray bytes = file.readAll();
+    if (bytes.size() < 44
+        || bytes.mid(0, 4) != QByteArrayLiteral("RIFF")
+        || bytes.mid(8, 4) != QByteArrayLiteral("WAVE")) {
+        return 0;
+    }
+
+    int offset = 12;
+    while (offset + 8 <= bytes.size()) {
+        const QByteArray chunkId = bytes.mid(offset, 4);
+        const quint32 chunkSize = littleEndianUInt32(bytes, offset + 4);
+        if (chunkId == QByteArrayLiteral("data")) {
+            return chunkSize;
+        }
+        offset += 8 + static_cast<int>(chunkSize) + static_cast<int>(chunkSize % 2);
+    }
+
+    return 0;
 }
 
 bool runManualSquelchCheck(marine::GrOsmoSdrSource &source, QString *error)
@@ -102,6 +144,7 @@ int main(int argc, char *argv[])
     const QStringList args = app.arguments();
 
     QTemporaryFile fileSource;
+    QTemporaryDir recordingDir;
     QString deviceArgs = valueAfter(args, QStringLiteral("--device-args"));
     if (deviceArgs.isEmpty()) {
         if (!writeZeroIqFile(fileSource)) {
@@ -109,6 +152,16 @@ int main(int argc, char *argv[])
             return 2;
         }
         deviceArgs = defaultFileDeviceArgs(fileSource);
+    }
+
+    const bool recordWav = args.contains(QStringLiteral("--record-wav"));
+    QString recordingPath = optionalValueAfter(args, QStringLiteral("--record-wav"));
+    if (recordWav && recordingPath.isEmpty()) {
+        if (!recordingDir.isValid()) {
+            qCritical() << "failed to create temporary recording directory";
+            return 2;
+        }
+        recordingPath = recordingDir.filePath(QStringLiteral("channel16.wav"));
     }
 
     marine::GrOsmoSdrSource source;
@@ -151,8 +204,26 @@ int main(int argc, char *argv[])
         return 4;
     }
 
+    if (recordWav) {
+        if (!source.startRecording(QStringLiteral("16"), recordingPath, &error)) {
+            qCritical() << "recording failed:" << error;
+            return 14;
+        }
+        qInfo() << "recording enabled:" << recordingPath;
+    }
+
     const int durationMs = intValueAfter(args, QStringLiteral("--duration-ms"), 200);
     QThread::msleep(static_cast<unsigned long>(durationMs));
+
+    if (recordWav) {
+        source.stopRecording();
+        const quint32 dataBytes = wavDataBytes(recordingPath);
+        qInfo() << "recording data bytes:" << dataBytes;
+        if (dataBytes == 0) {
+            qCritical() << "smoke failed: recording WAV has no audio frames";
+            return 15;
+        }
+    }
 
     source.stop();
     const marine::SdrStreamStats finalStats = source.stats();

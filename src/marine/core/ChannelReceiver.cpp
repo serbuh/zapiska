@@ -216,6 +216,13 @@ void ChannelReceiver::connectAudioOutput(const gr::top_block_sptr &topBlock,
     topBlock->connect(impl->demodulator, 0, destination, destinationPort);
 }
 
+void ChannelReceiver::disconnectAudioOutput(const gr::top_block_sptr &topBlock,
+    const gr::basic_block_sptr &destination,
+    int destinationPort)
+{
+    topBlock->disconnect(impl->demodulator, 0, destination, destinationPort);
+}
+
 void ChannelReceiver::setSquelch(SdrSquelchMode mode, double thresholdDbfs)
 {
     SdrChannelStats updateStats;

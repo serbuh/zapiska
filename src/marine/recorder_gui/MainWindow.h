@@ -33,14 +33,17 @@ private:
     void startSdr();
     void stopSdr();
     void toggleLiveAudio();
+    void toggleRecording();
     void handleSdrStateChanged(marine::SdrSourceState state);
     void handleSdrStatsUpdated(const marine::SdrStreamStats &stats);
     void handleSdrError(const QString &message);
     void refreshSdrControls();
     void updateSdrConfigLabels(const marine::SdrSourceConfig &config);
     marine::SdrSourceConfig buildSdrConfig() const;
-    void updateChannelMeters(const QVector<marine::SdrChannelStats> &channelStats);
+    void updateChannelMeters(const marine::SdrStreamStats &stats);
     int visibleChannelRow(const QString &id) const;
+    bool channelHasRecordableAudio(const marine::SdrStreamStats &stats, const QString &id) const;
+    QString nextRecordingPath() const;
     marine::SdrSquelchMode squelchModeForChannel(const QString &id) const;
     double squelchThresholdForChannel(const QString &id) const;
     void applyChannelSquelch(const QString &id);

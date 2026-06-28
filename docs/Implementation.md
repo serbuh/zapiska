@@ -89,11 +89,19 @@ This document tracks the current implementation state for Zapiska's marine recor
   - immediate live monitor gain refresh when a channel is forced open or muted.
 - Extended `marine-sdr-smoke` with `--manual-squelch-check` to verify forced-open,
   forced-muted, and threshold updates.
+- Added continuous Channel 16 WAV recording:
+  - `SdrSource` start/stop recording API,
+  - GNU Radio `wavfile_sink` branch connected to demodulated channel audio,
+  - recording state and output path in stream stats,
+  - recorder GUI Record/Stop Rec toggle,
+  - timestamped WAV path generation under the user's music directory.
+- Extended `marine-sdr-smoke` with `--record-wav` to verify that a WAV file is
+  created with a non-empty audio data chunk.
 
 ## Current Step
 
-Step 12 is complete: each visible channel can now stay automatic, be forced open,
-be forced muted, and use its own squelch threshold before recording is added.
+Step 13 is complete: Channel 16 can be manually recorded to a continuous WAV file
+while the SDR is streaming.
 
 ## Verification
 
@@ -121,33 +129,35 @@ be forced muted, and use its own squelch threshold before recording is added.
 - Verified `marine-sdr-smoke --live-audio --duration-ms 300` opens the live monitor path.
 - Verified `marine-sdr-smoke --manual-squelch-check --device-args hackrf=0 --sample-rate 2000000 --duration-ms 2000`
   against the attached HackRF One.
+- Rebuilt `marine-recorder-gui` and `marine-sdr-smoke` after adding WAV recording.
+- Verified `marine-sdr-smoke --record-wav --duration-ms 300` creates a WAV file
+  with non-zero audio data bytes against the temporary file source.
 
 ## Left To Do
 
-1. Add WAV recording for Channel 16.
-2. Add JSON sidecar metadata for recordings.
-3. Add a configurable second channel display.
-4. Add per-channel recording controls.
-5. Add a separate playback GUI for recorded WAV files.
-6. Add squelch-gated segment recording and timeline metadata.
+1. Add JSON sidecar metadata for recordings.
+2. Add a configurable second channel display.
+3. Add per-channel recording controls.
+4. Add a separate playback GUI for recorded WAV files.
+5. Add squelch-gated segment recording and timeline metadata.
 
 ## Immediate Next Step
 
-Add WAV recording for Channel 16 now that demodulated playback and manual squelch
-control are in place.
+Add JSON sidecar metadata for Channel 16 recordings.
 
 Acceptance criteria:
 
-- Add a core recording path that can write Channel 16 demodulated audio to a WAV file.
-- Keep the first recorder manually controlled and continuous; squelch-gated segmenting remains a later step.
-- Enable the GUI Record control only when the SDR is streaming and Channel 16 audio is available.
-- Surface recording errors in the GUI.
-- Extend smoke or add a focused recorder check that proves a WAV file is created with non-zero audio frames.
+- Write a JSON metadata file next to each WAV recording.
+- Include channel id/name, frequency, center frequency, sample rate, audio sample rate,
+  start/stop timestamps, squelch mode/threshold, and WAV path.
+- Surface metadata write errors in the GUI or smoke output.
+- Extend smoke or add a focused check that proves both WAV and metadata files are created.
 
 ## Notes
 
 - Primary recorder backend decision: use GNU Radio with gr-osmosdr, matching the working Gqrx stack.
-- The Record control remains disabled until audio recording exists.
+- The first Record control is manually controlled and records Channel 16 continuously;
+  squelch-gated segmenting remains a later step.
 - Channel 16 remains the only default-enabled/default-recording channel.
 - Channel selection and squelch settings are runtime-only for now; they are not persisted.
 - The code should continue to keep the core library independent from GUI-specific behavior.

@@ -3,9 +3,13 @@
 #include "ChannelReceiver.h"
 #include "IqPowerSink.h"
 
+#include <QDir>
+#include <QFileInfo>
+
 #include <gnuradio/audio/sink.h>
 #include <gnuradio/blocks/add_blk.h>
 #include <gnuradio/blocks/multiply_const.h>
+#include <gnuradio/blocks/wavfile_sink.h>
 #include <gnuradio/top_block.h>
 #include <osmosdr/device.h>
 #include <osmosdr/source.h>
@@ -112,6 +116,9 @@ struct GrOsMoBlocks
     std::vector<gr::blocks::multiply_const_ff::sptr> audioGains;
     gr::blocks::add_ff::sptr audioMixer;
     gr::audio::sink::sptr audioSink;
+    gr::blocks::wavfile_sink::sptr recordingSink;
+    QString recordingChannelId;
+    QString recordingPath;
 };
 
 struct GrOsmoSdrSource::Impl
@@ -342,6 +349,176 @@ struct GrOsmoSdrSource::Impl
         return true;
     }
 
+    bool startRecording(const QString &channelId,
+        const QString &filePath,
+        QString *errorMessage)
+    {
+        if (errorMessage) {
+            errorMessage->clear();
+        }
+        if (filePath.isEmpty()) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Recording file path is empty");
+            }
+            return false;
+        }
+
+        gr::top_block_sptr topBlock;
+        ChannelReceiver::sptr channelReceiver;
+        bool wasRunning = false;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            topBlock = blocks.topBlock;
+            wasRunning = activeStats.running;
+            if (activeStats.recording || blocks.recordingSink) {
+                if (errorMessage) {
+                    *errorMessage = QStringLiteral("Recording is already active");
+                }
+                return false;
+            }
+            for (std::size_t index = 0; index < blocks.channelIds.size(); ++index) {
+                if (blocks.channelIds.at(index) == channelId && index < blocks.channelReceivers.size()) {
+                    channelReceiver = blocks.channelReceivers.at(index);
+                    break;
+                }
+            }
+        }
+
+        if (!topBlock) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("GNU Radio gr-osmosdr source is not open");
+            }
+            return false;
+        }
+        if (!wasRunning) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("SDR must be streaming before recording can start");
+            }
+            return false;
+        }
+        if (!channelReceiver) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Channel %1 is not active").arg(channelId);
+            }
+            return false;
+        }
+
+        const QFileInfo fileInfo(filePath);
+        const QDir parentDir = fileInfo.absoluteDir();
+        if (!parentDir.exists() && !QDir().mkpath(parentDir.absolutePath())) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Could not create recording directory %1")
+                    .arg(parentDir.absolutePath());
+            }
+            return false;
+        }
+
+        const auto channelStats = channelReceiver->initialStats();
+        const auto localPath = fileInfo.absoluteFilePath().toLocal8Bit();
+        gr::blocks::wavfile_sink::sptr recordingSink;
+
+        try {
+            recordingSink = gr::blocks::wavfile_sink::make(
+                localPath.constData(),
+                1,
+                static_cast<unsigned int>(std::max(channelStats.audioSampleRateHz, 1)),
+                gr::blocks::FORMAT_WAV,
+                gr::blocks::FORMAT_PCM_16,
+                false);
+
+            topBlock->lock();
+            try {
+                channelReceiver->connectAudioOutput(topBlock, recordingSink, 0);
+            } catch (...) {
+                topBlock->unlock();
+                recordingSink->close();
+                throw;
+            }
+            topBlock->unlock();
+        } catch (const std::exception &error) {
+            if (errorMessage) {
+                *errorMessage = errorText(error);
+            }
+            return false;
+        }
+
+        SdrStreamStats statsSnapshot;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            blocks.recordingSink = std::move(recordingSink);
+            blocks.recordingChannelId = channelId;
+            blocks.recordingPath = fileInfo.absoluteFilePath();
+            activeStats.recording = true;
+            activeStats.recordingChannelId = channelId;
+            activeStats.recordingPath = fileInfo.absoluteFilePath();
+            statsSnapshot = activeStats;
+        }
+        emit owner->statsUpdated(statsSnapshot);
+        return true;
+    }
+
+    void stopRecording()
+    {
+        gr::top_block_sptr topBlock;
+        ChannelReceiver::sptr channelReceiver;
+        gr::blocks::wavfile_sink::sptr recordingSink;
+        QString recordingChannelId;
+        bool wasRunning = false;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            topBlock = blocks.topBlock;
+            recordingSink = blocks.recordingSink;
+            recordingChannelId = blocks.recordingChannelId;
+            wasRunning = activeStats.running;
+            for (std::size_t index = 0; index < blocks.channelIds.size(); ++index) {
+                if (blocks.channelIds.at(index) == recordingChannelId && index < blocks.channelReceivers.size()) {
+                    channelReceiver = blocks.channelReceivers.at(index);
+                    break;
+                }
+            }
+        }
+
+        if (!recordingSink) {
+            return;
+        }
+
+        try {
+            if (topBlock && channelReceiver) {
+                if (wasRunning) {
+                    topBlock->lock();
+                }
+                try {
+                    channelReceiver->disconnectAudioOutput(topBlock, recordingSink, 0);
+                } catch (...) {
+                    if (wasRunning) {
+                        topBlock->unlock();
+                    }
+                    throw;
+                }
+                if (wasRunning) {
+                    topBlock->unlock();
+                }
+            }
+            recordingSink->close();
+        } catch (const std::exception &error) {
+            emit owner->errorOccurred(errorText(error));
+            recordingSink->close();
+        }
+
+        SdrStreamStats statsSnapshot;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            blocks.recordingSink.reset();
+            blocks.recordingChannelId.clear();
+            blocks.recordingPath.clear();
+            activeStats.recording = false;
+            activeStats.recordingChannelId.clear();
+            activeStats.recordingPath.clear();
+            statsSnapshot = activeStats;
+        }
+        emit owner->statsUpdated(statsSnapshot);
+    }
+
     bool setChannelSquelch(const QString &channelId,
         SdrSquelchMode mode,
         double thresholdDbfs,
@@ -386,6 +563,8 @@ struct GrOsmoSdrSource::Impl
 
     void stop()
     {
+        stopRecording();
+
         bool hadRunningFlowgraph = false;
         {
             std::lock_guard<std::mutex> lock(mutex);
@@ -410,6 +589,7 @@ struct GrOsmoSdrSource::Impl
 
     void close()
     {
+        stopRecording();
         blocks = {};
         {
             std::lock_guard<std::mutex> lock(mutex);
@@ -597,6 +777,23 @@ bool GrOsmoSdrSource::setLiveAudioEnabled(bool enabled, QString *errorMessage)
 bool GrOsmoSdrSource::liveAudioEnabled() const
 {
     return stats().liveAudioEnabled;
+}
+
+bool GrOsmoSdrSource::startRecording(const QString &channelId,
+    const QString &filePath,
+    QString *errorMessage)
+{
+    return impl->startRecording(channelId, filePath, errorMessage);
+}
+
+void GrOsmoSdrSource::stopRecording()
+{
+    impl->stopRecording();
+}
+
+bool GrOsmoSdrSource::recording() const
+{
+    return stats().recording;
 }
 
 bool GrOsmoSdrSource::setChannelSquelch(const QString &channelId,
