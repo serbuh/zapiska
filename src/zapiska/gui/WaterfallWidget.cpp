@@ -152,11 +152,11 @@ void WaterfallWidget::paintEvent(QPaintEvent *event)
 
         if (marker.unsquelched) {
             painter.fillRect(
-                QRect(plotRect.left() + x - 3, plotRect.top(), 7, plotRect.height()),
+                QRect(plotRect.left() + x, plotRect.top(), 1, plotRect.height()),
                 QColor(255, 135, 30, 60));
         } else if (marker.selected) {
             painter.fillRect(
-                QRect(plotRect.left() + x - 3, plotRect.top(), 7, plotRect.height()),
+                QRect(plotRect.left() + x, plotRect.top(), 1, plotRect.height()),
                 QColor(80, 255, 190, 40));
         }
 
@@ -164,10 +164,8 @@ void WaterfallWidget::paintEvent(QPaintEvent *event)
         int lineWidth = 1;
         if (marker.unsquelched) {
             lineColor = QColor(255, 135, 30, 245);
-            lineWidth = 3;
         } else if (marker.selected) {
             lineColor = QColor(90, 255, 190, 240);
-            lineWidth = 3;
         }
 
         painter.setPen(QPen(lineColor, lineWidth));
