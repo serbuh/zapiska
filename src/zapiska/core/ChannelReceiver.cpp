@@ -23,7 +23,7 @@ constexpr int TargetChannelSampleRateHz = 50000;
 constexpr int MinimumTransitionWidthHz = 2000;
 constexpr int PowerReportsPerSecond = 20;
 constexpr double NarrowFmDeviationHz = 5000.0;
-constexpr double DefaultSquelchThresholdDbfs = -45.0;
+constexpr double DefaultSquelchThresholdDbfs = -150.0;
 constexpr double Pi = 3.14159265358979323846;
 
 int normalizedBandwidth(int bandwidthHz)

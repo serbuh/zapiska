@@ -128,7 +128,7 @@ bool runManualSquelchCheck(zapiska::GrOsmoSdrSource &source, QString *error)
     if (!source.setChannelSquelch(
             QStringLiteral("16"),
             zapiska::SdrSquelchMode::Automatic,
-            -45.0,
+            -150.0,
             error)) {
         qCritical() << "manual squelch check failed: auto restore rejected:" << *error;
         return false;

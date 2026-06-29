@@ -41,7 +41,7 @@ struct SdrChannelConfig
     QString name;
     qint64 frequencyHz = DefaultChannelFrequencyHz;
     int bandwidthHz = 10000;
-    double squelchThresholdDbfs = -45.0;
+    double squelchThresholdDbfs = -150.0;
     SdrSquelchMode squelchMode = SdrSquelchMode::Automatic;
     bool monitorEnabled = true;
     bool enabled = true;
@@ -74,7 +74,7 @@ struct SdrChannelStats
     double audioLevelDbfs = -200.0;
     bool hasSquelch = false;
     bool squelchOpen = false;
-    double squelchThresholdDbfs = -45.0;
+    double squelchThresholdDbfs = -150.0;
     SdrSquelchMode squelchMode = SdrSquelchMode::Automatic;
     bool monitorEnabled = true;
 };

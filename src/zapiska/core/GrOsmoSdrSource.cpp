@@ -146,17 +146,19 @@ struct GrOsmoSdrSource::Impl
 
     ~Impl()
     {
-        stop();
-        close();
+        stop(false);
+        close(false);
     }
 
-    void setState(SdrSourceState newState)
+    void setState(SdrSourceState newState, bool notify = true)
     {
         {
             std::lock_guard<std::mutex> lock(mutex);
             activeState = newState;
         }
-        emit owner->stateChanged(newState);
+        if (notify) {
+            emit owner->stateChanged(newState);
+        }
     }
 
     void setError(const QString &message)
@@ -174,7 +176,7 @@ struct GrOsmoSdrSource::Impl
         emit owner->errorOccurred(message);
     }
 
-    void setStatsRunning(bool running)
+    void setStatsRunning(bool running, bool notify = true)
     {
         SdrStreamStats statsSnapshot;
         {
@@ -182,7 +184,9 @@ struct GrOsmoSdrSource::Impl
             activeStats.running = running;
             statsSnapshot = activeStats;
         }
-        emit owner->statsUpdated(statsSnapshot);
+        if (notify) {
+            emit owner->statsUpdated(statsSnapshot);
+        }
     }
 
     void updatePower(const IqPowerUpdate &update)
@@ -474,7 +478,7 @@ struct GrOsmoSdrSource::Impl
         return true;
     }
 
-    void stopRecording()
+    void stopRecording(bool notify = true)
     {
         gr::top_block_sptr topBlock;
         ChannelReceiver::sptr channelReceiver;
@@ -518,7 +522,9 @@ struct GrOsmoSdrSource::Impl
             }
             recordingSink->close();
         } catch (const std::exception &error) {
-            emit owner->errorOccurred(errorText(error));
+            if (notify) {
+                emit owner->errorOccurred(errorText(error));
+            }
             recordingSink->close();
         }
 
@@ -533,7 +539,9 @@ struct GrOsmoSdrSource::Impl
             activeStats.recordingPath.clear();
             statsSnapshot = activeStats;
         }
-        emit owner->statsUpdated(statsSnapshot);
+        if (notify) {
+            emit owner->statsUpdated(statsSnapshot);
+        }
     }
 
     bool setChannelSquelch(const QString &channelId,
@@ -619,9 +627,9 @@ struct GrOsmoSdrSource::Impl
         return true;
     }
 
-    void stop()
+    void stop(bool notify = true)
     {
-        stopRecording();
+        stopRecording(notify);
 
         bool hadRunningFlowgraph = false;
         {
@@ -634,27 +642,29 @@ struct GrOsmoSdrSource::Impl
                 blocks.topBlock->stop();
                 blocks.topBlock->wait();
             } catch (const std::exception &error) {
-                emit owner->errorOccurred(errorText(error));
+                if (notify) {
+                    emit owner->errorOccurred(errorText(error));
+                }
             }
         }
 
-        setStatsRunning(false);
+        setStatsRunning(false, notify);
 
         if (blocks.topBlock) {
-            setState(SdrSourceState::Open);
+            setState(SdrSourceState::Open, notify);
         }
     }
 
-    void close()
+    void close(bool notify = true)
     {
-        stopRecording();
+        stopRecording(notify);
         blocks = {};
         {
             std::lock_guard<std::mutex> lock(mutex);
             activeConfig = {};
             activeStats = {};
         }
-        setState(SdrSourceState::Closed);
+        setState(SdrSourceState::Closed, notify);
     }
 
     SdrStreamStats stats() const

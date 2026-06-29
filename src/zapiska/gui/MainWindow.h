@@ -24,6 +24,7 @@ class MainWindow : public QMainWindow
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);
+    ~MainWindow() override;
 
 private:
     void buildUi();
@@ -62,6 +63,7 @@ private:
     zapiska::SdrSourceConfig buildSdrConfig() const;
     void updateChannelMeters(const zapiska::SdrStreamStats &stats);
     void resetChannelDisplay(int row);
+    void updateChannelRowHighlight(int row, bool unsquelched);
     int channelRow(const QString &id) const;
     bool channelHasRecordableAudio(const zapiska::SdrStreamStats &stats, const QString &id) const;
     QString nextRecordingPath() const;

@@ -4,6 +4,7 @@
 #include "WaterfallWidget.h"
 
 #include <QAbstractItemView>
+#include <QBrush>
 #include <QComboBox>
 #include <QDateTime>
 #include <QDoubleSpinBox>
@@ -34,8 +35,8 @@ namespace {
 
 constexpr double MinimumMeterPowerDbfs = -100.0;
 constexpr double MaximumMeterPowerDbfs = -20.0;
-constexpr double DefaultSquelchThresholdDbfs = -45.0;
 constexpr double ResetSquelchThresholdDbfs = -150.0;
+constexpr double DefaultSquelchThresholdDbfs = ResetSquelchThresholdDbfs;
 constexpr double AutoSquelchOffsetDb = 3.0;
 constexpr double MaximumAutoSquelchThresholdDbfs = -10.0;
 constexpr int FftZoomSliderMinimum = 0;
@@ -50,6 +51,7 @@ constexpr int MonitorColumn = 4;
 constexpr int ThresholdColumn = 5;
 constexpr int StateColumn = 6;
 constexpr int RecordingColumn = 7;
+constexpr QRgb UnsquelchedRowColor = qRgba(255, 135, 30, 60);
 
 QString formatSampleCount(quint64 samplesRead)
 {
@@ -190,6 +192,13 @@ MainWindow::MainWindow(QWidget *parent)
     loadChannels();
 }
 
+MainWindow::~MainWindow()
+{
+    QObject::disconnect(&sdrSource, nullptr, this, nullptr);
+    sdrSource.blockSignals(true);
+    sdrSource.close();
+}
+
 void MainWindow::buildUi()
 {
     auto *root = new QWidget(this);
@@ -277,7 +286,6 @@ void MainWindow::buildUi()
     fftScrollBar->setFixedWidth(180);
     fftScrollBar->setToolTip(tr("FFT horizontal scroll"));
 
-    channelControlsLayout->addWidget(new QLabel(tr("Display:"), channelControls));
     channelControlsLayout->addWidget(fftButton);
     channelControlsLayout->addSpacing(12);
     channelControlsLayout->addWidget(new QLabel(tr("Zoom:"), channelControls));
@@ -954,6 +962,8 @@ void MainWindow::updateChannelMeters(const zapiska::SdrStreamStats &streamStats)
                     ? tr("recording")
                     : (channelArmed ? tr("armed") : tr("off")));
         }
+
+        updateChannelRowHighlight(row, stats.hasSquelch && stats.squelchOpen);
     }
 }
 
@@ -983,7 +993,25 @@ void MainWindow::resetChannelDisplay(int row)
         recordingItem->setText(selected && channel.recordByDefault ? tr("armed") : tr("off"));
     }
 
+    updateChannelRowHighlight(row, false);
     updateChannelMonitorButton(row);
+}
+
+void MainWindow::updateChannelRowHighlight(int row, bool unsquelched)
+{
+    if (row < 0 || row >= channelTable->rowCount()) {
+        return;
+    }
+
+    const QBrush background = unsquelched
+        ? QBrush(QColor::fromRgba(UnsquelchedRowColor))
+        : QBrush();
+    for (int column = 0; column < channelTable->columnCount(); ++column) {
+        auto *item = channelTable->item(row, column);
+        if (item) {
+            item->setBackground(background);
+        }
+    }
 }
 
 int MainWindow::channelRow(const QString &id) const
