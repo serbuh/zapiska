@@ -1,5 +1,6 @@
 #include "WaterfallWidget.h"
 
+#include <QFontMetrics>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPaintEvent>
@@ -124,6 +125,25 @@ void WaterfallWidget::paintEvent(QPaintEvent *event)
 
     painter.setRenderHint(QPainter::Antialiasing, false);
     const QRect plotRect = rect();
+    const QFontMetrics labelMetrics = painter.fontMetrics();
+    const int labelSpacing = 6;
+    const int labelLaneHeight = labelMetrics.height() + 2;
+    const int labelLaneCount = std::max(
+        1,
+        std::min(6, std::max(1, plotRect.height() / labelLaneHeight)));
+    const int bottomLabelBaseline = std::max(
+        plotRect.top() + labelMetrics.ascent(),
+        plotRect.bottom() - labelMetrics.descent() - 3);
+    struct ChannelLabel
+    {
+        QString text;
+        int x = 0;
+        int width = 0;
+        QColor color;
+    };
+    QVector<ChannelLabel> labels;
+    labels.reserve(channelMarkers.size());
+
     for (const auto &marker : channelMarkers) {
         const int x = xForFrequency(marker.frequencyHz, plotRect.width());
         if (x < 0 || x >= plotRect.width()) {
@@ -153,16 +173,55 @@ void WaterfallWidget::paintEvent(QPaintEvent *event)
         painter.setPen(QPen(lineColor, lineWidth));
         painter.drawLine(plotRect.left() + x, plotRect.top(), plotRect.left() + x, plotRect.bottom());
 
-        if (marker.selected) {
-            QColor textColor(255, 245, 190);
-            if (marker.unsquelched) {
-                textColor = QColor(255, 230, 190);
-            } else {
-                textColor = QColor(190, 255, 225);
-            }
-            painter.setPen(textColor);
-            painter.drawText(plotRect.left() + x + 3, plotRect.top() + 14, marker.name);
+        QColor textColor(210, 220, 230, 170);
+        if (marker.unsquelched) {
+            textColor = QColor(255, 230, 190);
+        } else if (marker.selected) {
+            textColor = QColor(190, 255, 225);
         }
+
+        const int labelWidth = labelMetrics.horizontalAdvance(marker.name);
+        const int labelX = std::clamp(
+            plotRect.left() + x + 3,
+            plotRect.left(),
+            std::max(plotRect.left(), plotRect.right() - labelWidth));
+        labels.append(ChannelLabel { marker.name, labelX, labelWidth, textColor });
+    }
+
+    std::sort(labels.begin(), labels.end(), [](const ChannelLabel &left, const ChannelLabel &right) {
+        return left.x < right.x;
+    });
+
+    QVector<int> laneRightEdges(labelLaneCount, plotRect.left() - labelSpacing);
+    for (auto &label : labels) {
+        int lane = 0;
+        bool foundLane = false;
+        for (int candidate = 0; candidate < laneRightEdges.size(); ++candidate) {
+            if (label.x >= laneRightEdges.at(candidate) + labelSpacing) {
+                lane = candidate;
+                foundLane = true;
+                break;
+            }
+        }
+
+        if (!foundLane) {
+            for (int candidate = 1; candidate < laneRightEdges.size(); ++candidate) {
+                if (laneRightEdges.at(candidate) < laneRightEdges.at(lane)) {
+                    lane = candidate;
+                }
+            }
+            label.x = std::clamp(
+                laneRightEdges.at(lane) + labelSpacing,
+                plotRect.left(),
+                std::max(plotRect.left(), plotRect.right() - label.width));
+        }
+
+        const int labelBaseline = std::max(
+            plotRect.top() + labelMetrics.ascent(),
+            bottomLabelBaseline - (lane * labelLaneHeight));
+        laneRightEdges[lane] = label.x + label.width;
+        painter.setPen(label.color);
+        painter.drawText(label.x, labelBaseline, label.text);
     }
 }
 
