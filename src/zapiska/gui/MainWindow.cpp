@@ -6,7 +6,9 @@
 #include <QAbstractItemView>
 #include <QBrush>
 #include <QComboBox>
+#include <QCoreApplication>
 #include <QDateTime>
+#include <QDesktopServices>
 #include <QDoubleSpinBox>
 #include <QDir>
 #include <QFile>
@@ -31,6 +33,7 @@
 #include <QStringList>
 #include <QTableWidget>
 #include <QTableWidgetItem>
+#include <QUrl>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -125,6 +128,39 @@ QString formatFftZoom(double zoom)
 QString rawIqMetadataPathFor(const QString &rawIqPath)
 {
     return rawIqPath + QStringLiteral(".json");
+}
+
+QString projectRootPath()
+{
+    const auto findRoot = [](const QString &startPath) {
+        QDir dir(startPath);
+        while (true) {
+            if (QFileInfo::exists(dir.filePath(QStringLiteral("data/presets/marine-vhf.json")))) {
+                return dir.absolutePath();
+            }
+            if (!dir.cdUp()) {
+                return QString();
+            }
+        }
+    };
+
+    const QStringList candidates = {
+        QDir::currentPath(),
+        QCoreApplication::applicationDirPath(),
+    };
+    for (const auto &candidate : candidates) {
+        const QString rootPath = findRoot(candidate);
+        if (!rootPath.isEmpty()) {
+            return rootPath;
+        }
+    }
+
+    return QDir::currentPath();
+}
+
+QString recordsDirectoryPath()
+{
+    return QDir(projectRootPath()).filePath(QStringLiteral("records"));
 }
 
 bool channelUnsquelched(const zapiska::SdrStreamStats &stats, const QString &id)
@@ -269,6 +305,7 @@ void MainWindow::buildUi()
     recordButton->setEnabled(false);
     rawIqRecordButton = new QPushButton(tr("Record IQ"), playbackControls);
     rawIqRecordButton->setEnabled(false);
+    auto *openRecordsButton = new QPushButton(tr("Open records"), playbackControls);
     waterfallWidget = new WaterfallWidget(root);
 
     sourceModeCombo = new QComboBox(sourceControls);
@@ -324,6 +361,7 @@ void MainWindow::buildUi()
     playbackControlsLayout->addWidget(fftButton);
     playbackControlsLayout->addWidget(recordButton);
     playbackControlsLayout->addWidget(rawIqRecordButton);
+    playbackControlsLayout->addWidget(openRecordsButton);
     playbackControlsLayout->addStretch();
 
     channelControlsLayout->addWidget(new QLabel(tr("Zoom:"), channelControls));
@@ -358,6 +396,7 @@ void MainWindow::buildUi()
     connect(monitorButton, &QPushButton::clicked, this, &MainWindow::toggleLiveAudio);
     connect(recordButton, &QPushButton::clicked, this, &MainWindow::toggleRecording);
     connect(rawIqRecordButton, &QPushButton::clicked, this, &MainWindow::toggleRawIqRecording);
+    connect(openRecordsButton, &QPushButton::clicked, this, &MainWindow::openRecordsDirectory);
     connect(fftButton, &QPushButton::clicked, this, &MainWindow::toggleFftVisible);
     connect(
         sourceModeCombo,
@@ -902,6 +941,22 @@ void MainWindow::toggleRawIqRecording()
     refreshSdrControls();
 }
 
+void MainWindow::openRecordsDirectory()
+{
+    const QString path = recordsDirectoryPath();
+    if (!QDir(path).exists() && !QDir().mkpath(path)) {
+        handleSdrError(tr("Could not create records directory %1").arg(path));
+        return;
+    }
+
+    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(path))) {
+        handleSdrError(tr("Could not open records directory %1").arg(path));
+        return;
+    }
+
+    statusBar()->showMessage(tr("Opened records directory %1").arg(path), 3000);
+}
+
 void MainWindow::handleSdrStateChanged(zapiska::SdrSourceState state)
 {
     if (state == zapiska::SdrSourceState::Open || state == zapiska::SdrSourceState::Streaming) {
@@ -1126,24 +1181,16 @@ bool MainWindow::channelHasRecordableAudio(const zapiska::SdrStreamStats &stats,
 
 QString MainWindow::nextRecordingPath() const
 {
-    QString basePath = QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
-    if (basePath.isEmpty()) {
-        basePath = QDir::currentPath();
-    }
-
     const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss"));
-    return QDir(basePath).filePath(QStringLiteral("Zapiska/recording_%1.wav").arg(timestamp));
+    return QDir(recordsDirectoryPath()).filePath(
+        QStringLiteral("WAV/recording_%1.wav").arg(timestamp));
 }
 
 QString MainWindow::nextRawIqRecordingPath() const
 {
-    QString basePath = QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
-    if (basePath.isEmpty()) {
-        basePath = QDir::currentPath();
-    }
-
     const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss"));
-    return QDir(basePath).filePath(QStringLiteral("Zapiska/raw_iq_%1.cfile").arg(timestamp));
+    return QDir(recordsDirectoryPath()).filePath(
+        QStringLiteral("IQ/raw_iq_%1.cfile").arg(timestamp));
 }
 
 void MainWindow::handleSourceModeChanged()

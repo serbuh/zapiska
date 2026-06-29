@@ -56,6 +56,7 @@ private:
     bool applyLiveAudioDesiredState();
     void toggleRecording();
     void toggleRawIqRecording();
+    void openRecordsDirectory();
     void handleSdrStateChanged(zapiska::SdrSourceState state);
     void handleSdrStatsUpdated(const zapiska::SdrStreamStats &stats);
     void handleSpectrumUpdated(const zapiska::SdrSpectrumFrame &frame);
