@@ -60,7 +60,7 @@ constexpr int MonitorColumn = 4;
 constexpr int ThresholdColumn = 5;
 constexpr int StateColumn = 6;
 constexpr int RecordingColumn = 7;
-constexpr QRgb UnsquelchedRowColor = qRgba(255, 135, 30, 60);
+constexpr QRgb UnsquelchedStateColor = qRgba(255, 135, 30, 90);
 
 QString formatSampleCount(quint64 samplesRead)
 {
@@ -1106,7 +1106,7 @@ void MainWindow::updateChannelMeters(const zapiska::SdrStreamStats &streamStats)
                     : (channelArmed ? tr("armed") : tr("off")));
         }
 
-        updateChannelRowHighlight(row, stats.hasSquelch && stats.squelchOpen);
+        updateChannelStateHighlight(row, stats.hasSquelch && stats.squelchOpen);
     }
 }
 
@@ -1136,25 +1136,24 @@ void MainWindow::resetChannelDisplay(int row)
         recordingItem->setText(selected && channel.recordByDefault ? tr("armed") : tr("off"));
     }
 
-    updateChannelRowHighlight(row, false);
+    updateChannelStateHighlight(row, false);
     updateChannelMonitorButton(row);
 }
 
-void MainWindow::updateChannelRowHighlight(int row, bool unsquelched)
+void MainWindow::updateChannelStateHighlight(int row, bool unsquelched)
 {
     if (row < 0 || row >= channelTable->rowCount()) {
         return;
     }
 
-    const QBrush background = unsquelched
-        ? QBrush(QColor::fromRgba(UnsquelchedRowColor))
-        : QBrush();
-    for (int column = 0; column < channelTable->columnCount(); ++column) {
-        auto *item = channelTable->item(row, column);
-        if (item) {
-            item->setBackground(background);
-        }
+    auto *stateItem = channelTable->item(row, StateColumn);
+    if (!stateItem) {
+        return;
     }
+
+    stateItem->setBackground(unsquelched
+            ? QBrush(QColor::fromRgba(UnsquelchedStateColor))
+            : QBrush());
 }
 
 int MainWindow::channelRow(const QString &id) const
