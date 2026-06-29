@@ -97,6 +97,20 @@ This document tracks the current implementation state for Zapiska's SDR recorder
   - timestamped WAV path generation under the user's music directory.
 - Extended `zapiska-sdr-smoke` with `--record-wav` to verify that a WAV file is
   created with a non-empty audio data chunk.
+- Added raw wideband IQ recording:
+  - `SdrSource` start/stop raw IQ recording API,
+  - GNU Radio `file_sink` branch connected directly to the shared IQ source,
+  - `.cfile` output containing `cf32_le` complex float samples,
+  - `.cfile.json` sidecar metadata containing center frequency, sample rate,
+    source args, timestamps, and sample count,
+  - recorder GUI `Record IQ` toggle.
+- Added raw IQ replay support in the recorder GUI:
+  - `Source` selector with `HackRF` and `IQ File`,
+  - raw IQ file picker,
+  - metadata auto-load for center frequency and sample rate,
+  - gr-osmosdr `file=...,rate=...,freq=...,repeat=true,throttle=true` playback
+    through the same FFT and channel receiver graph.
+- Extended `zapiska-sdr-smoke` with `--record-raw-iq` to verify raw IQ capture.
 
 ## Current Step
 
@@ -138,6 +152,13 @@ live monitor/playback mix, and later recording controls.
 - Rebuilt `zapiska` and `zapiska-sdr-smoke` after adding WAV recording.
 - Verified `zapiska-sdr-smoke --record-wav --duration-ms 300` creates a WAV file
   with non-zero audio data bytes against the temporary file source.
+- Rebuilt `zapiska` and `zapiska-sdr-smoke` after adding raw IQ recording/replay.
+- Verified `zapiska-sdr-smoke --duration-ms 300 --record-raw-iq /tmp/zapiska-raw-iq-smoke.cfile`
+  creates a non-empty `.cfile` and `.cfile.json` metadata sidecar.
+- Verified replay through the normal DSP path with
+  `zapiska-sdr-smoke --duration-ms 300 --device-args file=/tmp/zapiska-raw-iq-smoke.cfile,rate=96000,freq=156800000,repeat=true,throttle=true`.
+- Re-ran `zapiska-sdr-smoke --duration-ms 300 --record-wav` after adding the raw
+  IQ branch.
 
 ## Left To Do
 

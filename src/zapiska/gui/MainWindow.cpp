@@ -9,9 +9,15 @@
 #include <QDateTime>
 #include <QDoubleSpinBox>
 #include <QDir>
+#include <QFile>
+#include <QFileDialog>
+#include <QFileInfo>
 #include <QHeaderView>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QLineEdit>
 #include <QLocale>
 #include <QPainter>
 #include <QProgressBar>
@@ -116,6 +122,11 @@ QString formatFftZoom(double zoom)
     return QLocale::c().toString(zoom, 'f', zoom < 10.0 ? 1 : 0) + QStringLiteral("x");
 }
 
+QString rawIqMetadataPathFor(const QString &rawIqPath)
+{
+    return rawIqPath + QStringLiteral(".json");
+}
+
 bool channelUnsquelched(const zapiska::SdrStreamStats &stats, const QString &id)
 {
     for (const auto &channelStats : stats.channelStats) {
@@ -212,6 +223,10 @@ void MainWindow::buildUi()
     auto *sdrMetricsLayout = new QHBoxLayout(sdrMetrics);
     sdrMetricsLayout->setContentsMargins(0, 0, 0, 0);
 
+    auto *sourceControls = new QWidget(root);
+    auto *sourceControlsLayout = new QHBoxLayout(sourceControls);
+    sourceControlsLayout->setContentsMargins(0, 0, 0, 0);
+
     auto *channelControls = new QWidget(root);
     auto *channelControlsLayout = new QHBoxLayout(channelControls);
     channelControlsLayout->setContentsMargins(0, 0, 0, 0);
@@ -248,13 +263,31 @@ void MainWindow::buildUi()
     monitorButton->setEnabled(false);
     recordButton = new QPushButton(tr("Record"), toolbar);
     recordButton->setEnabled(false);
+    rawIqRecordButton = new QPushButton(tr("Record IQ"), toolbar);
+    rawIqRecordButton->setEnabled(false);
     waterfallWidget = new WaterfallWidget(root);
 
     toolbarLayout->addWidget(connectButton);
     toolbarLayout->addWidget(startButton);
     toolbarLayout->addWidget(monitorButton);
     toolbarLayout->addWidget(recordButton);
+    toolbarLayout->addWidget(rawIqRecordButton);
     toolbarLayout->addStretch();
+
+    sourceModeCombo = new QComboBox(sourceControls);
+    sourceModeCombo->addItem(tr("HackRF"), QStringLiteral("hackrf"));
+    sourceModeCombo->addItem(tr("IQ File"), QStringLiteral("iq-file"));
+
+    rawIqFileButton = new QPushButton(tr("Open IQ"), sourceControls);
+    rawIqFileEdit = new QLineEdit(sourceControls);
+    rawIqFileEdit->setReadOnly(true);
+    rawIqFileEdit->setPlaceholderText(tr("No raw IQ file selected"));
+
+    sourceControlsLayout->addWidget(new QLabel(tr("Source:"), sourceControls));
+    sourceControlsLayout->addWidget(sourceModeCombo);
+    sourceControlsLayout->addSpacing(12);
+    sourceControlsLayout->addWidget(rawIqFileButton);
+    sourceControlsLayout->addWidget(rawIqFileEdit, 1);
 
     sdrMetricsLayout->addWidget(new QLabel(tr("Center:"), sdrMetrics));
     sdrMetricsLayout->addWidget(centerFrequencySpin);
@@ -318,7 +351,14 @@ void MainWindow::buildUi()
     connect(startButton, &QPushButton::clicked, this, &MainWindow::toggleSdrStreaming);
     connect(monitorButton, &QPushButton::clicked, this, &MainWindow::toggleLiveAudio);
     connect(recordButton, &QPushButton::clicked, this, &MainWindow::toggleRecording);
+    connect(rawIqRecordButton, &QPushButton::clicked, this, &MainWindow::toggleRawIqRecording);
     connect(fftButton, &QPushButton::clicked, this, &MainWindow::toggleFftVisible);
+    connect(
+        sourceModeCombo,
+        static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
+        this,
+        &MainWindow::handleSourceModeChanged);
+    connect(rawIqFileButton, &QPushButton::clicked, this, &MainWindow::selectRawIqReplayFile);
     connect(fftZoomSlider, &QSlider::valueChanged, this, [this](int value) {
         waterfallWidget->setHorizontalZoom(fftZoomFromSliderValue(value));
     });
@@ -335,6 +375,7 @@ void MainWindow::buildUi()
     connect(channelTable, &QTableWidget::itemChanged, this, &MainWindow::handleChannelItemChanged);
 
     layout->addWidget(toolbar);
+    layout->addWidget(sourceControls);
     layout->addWidget(sdrMetrics);
     layout->addWidget(sdrStatusLabel);
     layout->addWidget(waterfallWidget);
@@ -344,6 +385,7 @@ void MainWindow::buildUi()
     setCentralWidget(root);
     setWindowTitle(tr("Zapiska"));
     resize(900, 420);
+    refreshSourceModeControls();
     refreshFftControls();
 }
 
@@ -713,6 +755,11 @@ void MainWindow::toggleSdrConnection()
 
     sdrStatusLabel->setText(tr("SDR: connecting"));
     QString errorMessage;
+    if (rawIqReplayModeEnabled() && rawIqDeviceArgs(&errorMessage).isEmpty()) {
+        handleSdrError(errorMessage);
+        refreshSdrControls();
+        return;
+    }
     const zapiska::SdrSourceConfig config = buildSdrConfig();
     if (!sdrSource.open(config, &errorMessage)) {
         handleSdrError(errorMessage);
@@ -822,6 +869,33 @@ void MainWindow::toggleRecording()
     refreshSdrControls();
 }
 
+void MainWindow::toggleRawIqRecording()
+{
+    if (sdrSource.rawIqRecording()) {
+        const QString recordingPath = sdrSource.stats().rawIqRecordingPath;
+        const QString metadataPath = sdrSource.stats().rawIqMetadataPath;
+        sdrSource.stopRawIqRecording();
+        sdrStatusLabel->setText(tr("SDR: raw IQ recording stopped"));
+        statusBar()->showMessage(
+            tr("Raw IQ saved to %1 (%2)").arg(recordingPath, metadataPath),
+            6000);
+        refreshSdrControls();
+        return;
+    }
+
+    const QString recordingPath = nextRawIqRecordingPath();
+    QString errorMessage;
+    if (!sdrSource.startRawIqRecording(recordingPath, &errorMessage)) {
+        handleSdrError(errorMessage);
+        refreshSdrControls();
+        return;
+    }
+
+    sdrStatusLabel->setText(tr("SDR: recording raw IQ"));
+    statusBar()->showMessage(tr("Recording raw IQ to %1").arg(recordingPath), 6000);
+    refreshSdrControls();
+}
+
 void MainWindow::handleSdrStateChanged(zapiska::SdrSourceState state)
 {
     if (state == zapiska::SdrSourceState::Open || state == zapiska::SdrSourceState::Streaming) {
@@ -870,6 +944,7 @@ void MainWindow::refreshSdrControls()
     const bool isStreaming = state == zapiska::SdrSourceState::Streaming;
     const zapiska::SdrStreamStats stats = sdrSource.stats();
     const bool recording = stats.recording;
+    const bool rawIqRecording = stats.rawIqRecording;
 
     connectButton->setText(isOpen ? tr("Disconnect") : tr("Connect"));
     connectButton->setEnabled(true);
@@ -880,8 +955,12 @@ void MainWindow::refreshSdrControls()
     recordButton->setText(recording ? tr("Stop Rec") : tr("Record"));
     recordButton->setEnabled(recording
         || (isStreaming && channelHasRecordableAudio(stats, QStringLiteral("16"))));
+    rawIqRecordButton->setText(rawIqRecording ? tr("Stop IQ") : tr("Record IQ"));
+    rawIqRecordButton->setEnabled(rawIqRecording || isStreaming);
     centerFrequencySpin->setEnabled(!isOpen);
     sampleRateCombo->setEnabled(!isOpen);
+    sourceModeCombo->setEnabled(!isOpen);
+    refreshSourceModeControls();
     updateChannelSelectionControls();
 }
 
@@ -904,6 +983,9 @@ zapiska::SdrSourceConfig MainWindow::buildSdrConfig() const
     config.sampleRateHz = sampleRateCombo->currentData().isValid()
         ? sampleRateCombo->currentData().toInt()
         : zapiska::DefaultSdrSampleRateHz;
+    if (rawIqReplayModeEnabled()) {
+        config.deviceArgs = rawIqDeviceArgs();
+    }
     config.channels.reserve(selectedChannelCount());
 
     for (const auto &channel : channelCatalog) {
@@ -1045,6 +1127,174 @@ QString MainWindow::nextRecordingPath() const
 
     const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss"));
     return QDir(basePath).filePath(QStringLiteral("Zapiska/recording_%1.wav").arg(timestamp));
+}
+
+QString MainWindow::nextRawIqRecordingPath() const
+{
+    QString basePath = QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
+    if (basePath.isEmpty()) {
+        basePath = QDir::currentPath();
+    }
+
+    const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss"));
+    return QDir(basePath).filePath(QStringLiteral("Zapiska/raw_iq_%1.cfile").arg(timestamp));
+}
+
+void MainWindow::handleSourceModeChanged()
+{
+    refreshSourceModeControls();
+}
+
+void MainWindow::selectRawIqReplayFile()
+{
+    QString basePath = rawIqReplayPath;
+    if (basePath.isEmpty()) {
+        basePath = QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
+    }
+    if (basePath.isEmpty()) {
+        basePath = QDir::currentPath();
+    }
+
+    const QString path = QFileDialog::getOpenFileName(
+        this,
+        tr("Open Raw IQ File"),
+        basePath,
+        tr("Raw IQ files (*.cfile *.iq *.raw);;All files (*)"));
+    if (path.isEmpty()) {
+        return;
+    }
+
+    rawIqReplayPath = QFileInfo(path).absoluteFilePath();
+    rawIqFileEdit->setText(rawIqReplayPath);
+
+    qint64 centerFrequencyHz = 0;
+    int sampleRateHz = 0;
+    QString errorMessage;
+    if (loadRawIqMetadata(rawIqReplayPath, &centerFrequencyHz, &sampleRateHz, &errorMessage)) {
+        centerFrequencySpin->setValue(static_cast<double>(centerFrequencyHz) / 1000000.0);
+        int sampleRateIndex = sampleRateCombo->findData(sampleRateHz);
+        if (sampleRateIndex < 0) {
+            const QString label = QLocale::c().toString(
+                    static_cast<double>(sampleRateHz) / 1000000.0,
+                    'f',
+                    3)
+                + tr("M");
+            sampleRateCombo->addItem(label, sampleRateHz);
+            sampleRateIndex = sampleRateCombo->findData(sampleRateHz);
+        }
+        sampleRateCombo->setCurrentIndex(sampleRateIndex);
+        statusBar()->showMessage(tr("Loaded raw IQ metadata"), 3000);
+    } else if (!errorMessage.isEmpty()) {
+        statusBar()->showMessage(errorMessage, 4000);
+    }
+
+    refreshSourceModeControls();
+}
+
+void MainWindow::refreshSourceModeControls()
+{
+    if (!sourceModeCombo || !rawIqFileButton || !rawIqFileEdit) {
+        return;
+    }
+
+    const auto state = sdrSource.state();
+    const bool isOpen = state == zapiska::SdrSourceState::Open
+        || state == zapiska::SdrSourceState::Streaming;
+    const bool replayMode = rawIqReplayModeEnabled();
+
+    rawIqFileButton->setEnabled(replayMode && !isOpen);
+    rawIqFileEdit->setEnabled(replayMode);
+    rawIqFileButton->setVisible(replayMode);
+    rawIqFileEdit->setVisible(replayMode);
+}
+
+bool MainWindow::rawIqReplayModeEnabled() const
+{
+    return sourceModeCombo
+        && sourceModeCombo->currentData().toString() == QStringLiteral("iq-file");
+}
+
+QString MainWindow::rawIqDeviceArgs(QString *errorMessage) const
+{
+    if (errorMessage) {
+        errorMessage->clear();
+    }
+    if (rawIqReplayPath.isEmpty()) {
+        if (errorMessage) {
+            *errorMessage = tr("Select a raw IQ file before connecting");
+        }
+        return {};
+    }
+
+    const QFileInfo fileInfo(rawIqReplayPath);
+    if (!fileInfo.exists() || !fileInfo.isFile()) {
+        if (errorMessage) {
+            *errorMessage = tr("Raw IQ file does not exist: %1").arg(rawIqReplayPath);
+        }
+        return {};
+    }
+
+    const qint64 centerFrequencyHz = static_cast<qint64>(
+        std::llround(centerFrequencySpin->value() * 1000000.0));
+    const int sampleRateHz = sampleRateCombo->currentData().isValid()
+        ? sampleRateCombo->currentData().toInt()
+        : zapiska::DefaultSdrSampleRateHz;
+
+    return QStringLiteral("file=%1,rate=%2,freq=%3,repeat=true,throttle=true")
+        .arg(fileInfo.absoluteFilePath())
+        .arg(sampleRateHz)
+        .arg(centerFrequencyHz);
+}
+
+bool MainWindow::loadRawIqMetadata(const QString &path,
+    qint64 *centerFrequencyHz,
+    int *sampleRateHz,
+    QString *errorMessage) const
+{
+    if (errorMessage) {
+        errorMessage->clear();
+    }
+
+    QFile metadataFile(rawIqMetadataPathFor(path));
+    if (!metadataFile.exists()) {
+        if (errorMessage) {
+            *errorMessage = tr("No raw IQ metadata found; using current tuning controls");
+        }
+        return false;
+    }
+    if (!metadataFile.open(QIODevice::ReadOnly)) {
+        if (errorMessage) {
+            *errorMessage = tr("Could not open raw IQ metadata: %1").arg(metadataFile.errorString());
+        }
+        return false;
+    }
+
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(metadataFile.readAll(), &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+        if (errorMessage) {
+            *errorMessage = tr("Could not parse raw IQ metadata: %1").arg(parseError.errorString());
+        }
+        return false;
+    }
+
+    const QJsonObject object = document.object();
+    const auto centerValue = object.value(QStringLiteral("center_frequency_hz"));
+    const auto sampleRateValue = object.value(QStringLiteral("sample_rate_hz"));
+    if (!centerValue.isDouble() || !sampleRateValue.isDouble()) {
+        if (errorMessage) {
+            *errorMessage = tr("Raw IQ metadata is missing center frequency or sample rate");
+        }
+        return false;
+    }
+
+    if (centerFrequencyHz) {
+        *centerFrequencyHz = static_cast<qint64>(std::llround(centerValue.toDouble()));
+    }
+    if (sampleRateHz) {
+        *sampleRateHz = static_cast<int>(std::lround(sampleRateValue.toDouble()));
+    }
+    return true;
 }
 
 double MainWindow::squelchThresholdForChannel(const QString &id) const

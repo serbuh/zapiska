@@ -27,6 +27,10 @@ public:
         QString *errorMessage = nullptr) override;
     void stopRecording() override;
     bool recording() const override;
+    bool startRawIqRecording(const QString &filePath,
+        QString *errorMessage = nullptr) override;
+    void stopRawIqRecording() override;
+    bool rawIqRecording() const override;
     bool setChannelSquelch(const QString &channelId,
         SdrSquelchMode mode,
         double thresholdDbfs,

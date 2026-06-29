@@ -86,6 +86,9 @@ struct SdrStreamStats
     bool recording = false;
     QString recordingChannelId;
     QString recordingPath;
+    bool rawIqRecording = false;
+    QString rawIqRecordingPath;
+    QString rawIqMetadataPath;
     quint64 samplesRead = 0;
     quint64 droppedSamples = 0;
     bool hasWidebandPower = false;
@@ -132,6 +135,10 @@ public:
         QString *errorMessage = nullptr) = 0;
     virtual void stopRecording() = 0;
     virtual bool recording() const = 0;
+    virtual bool startRawIqRecording(const QString &filePath,
+        QString *errorMessage = nullptr) = 0;
+    virtual void stopRawIqRecording() = 0;
+    virtual bool rawIqRecording() const = 0;
     virtual bool setChannelSquelch(const QString &channelId,
         SdrSquelchMode mode,
         double thresholdDbfs,

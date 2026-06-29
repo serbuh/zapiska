@@ -11,6 +11,7 @@
 class QComboBox;
 class QDoubleSpinBox;
 class QLabel;
+class QLineEdit;
 class QPushButton;
 class QScrollBar;
 class QSlider;
@@ -54,6 +55,7 @@ private:
     void toggleLiveAudio();
     bool applyLiveAudioDesiredState();
     void toggleRecording();
+    void toggleRawIqRecording();
     void handleSdrStateChanged(zapiska::SdrSourceState state);
     void handleSdrStatsUpdated(const zapiska::SdrStreamStats &stats);
     void handleSpectrumUpdated(const zapiska::SdrSpectrumFrame &frame);
@@ -67,6 +69,7 @@ private:
     int channelRow(const QString &id) const;
     bool channelHasRecordableAudio(const zapiska::SdrStreamStats &stats, const QString &id) const;
     QString nextRecordingPath() const;
+    QString nextRawIqRecordingPath() const;
     double squelchThresholdForChannel(const QString &id) const;
     QDoubleSpinBox *squelchThresholdSpinForRow(int row) const;
     void applyChannelSquelch(const QString &id);
@@ -74,6 +77,15 @@ private:
     void autoSetChannelSquelch(const QString &id);
     void resetChannelSquelch(const QString &id);
     bool currentChannelPowerDbfs(const QString &id, double *powerDbfs) const;
+    void handleSourceModeChanged();
+    void selectRawIqReplayFile();
+    void refreshSourceModeControls();
+    bool rawIqReplayModeEnabled() const;
+    QString rawIqDeviceArgs(QString *errorMessage = nullptr) const;
+    bool loadRawIqMetadata(const QString &path,
+        qint64 *centerFrequencyHz,
+        int *sampleRateHz,
+        QString *errorMessage = nullptr) const;
 
     void handleChannelItemChanged(QTableWidgetItem *item);
     void toggleChannelMonitor(const QString &id);
@@ -82,6 +94,9 @@ private:
 
     zapiska::GrOsmoSdrSource sdrSource;
 
+    QComboBox *sourceModeCombo = nullptr;
+    QPushButton *rawIqFileButton = nullptr;
+    QLineEdit *rawIqFileEdit = nullptr;
     QDoubleSpinBox *centerFrequencySpin = nullptr;
     QComboBox *sampleRateCombo = nullptr;
     QLabel *sampleCountLabel = nullptr;
@@ -91,6 +106,7 @@ private:
     QPushButton *startButton = nullptr;
     QPushButton *monitorButton = nullptr;
     QPushButton *recordButton = nullptr;
+    QPushButton *rawIqRecordButton = nullptr;
     QPushButton *fftButton = nullptr;
     QPushButton *showSelectedOnlyButton = nullptr;
     QLabel *fftZoomLabel = nullptr;
@@ -103,6 +119,7 @@ private:
     QSet<QString> selectedChannelIds;
     QSet<QString> mutedMonitorChannelIds;
     QVector<zapiska::ChannelConfig> channelCatalog;
+    QString rawIqReplayPath;
     bool showSelectedOnly = true;
     bool fftVisible = true;
     bool liveAudioDesired = true;

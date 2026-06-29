@@ -4,13 +4,19 @@
 #include "IqFftSink.h"
 #include "IqPowerSink.h"
 
+#include <QDateTime>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 #include <gnuradio/audio/sink.h>
 #include <gnuradio/blocks/add_blk.h>
+#include <gnuradio/blocks/file_sink.h>
 #include <gnuradio/blocks/multiply_const.h>
 #include <gnuradio/blocks/wavfile_sink.h>
+#include <gnuradio/gr_complex.h>
 #include <gnuradio/top_block.h>
 #include <osmosdr/device.h>
 #include <osmosdr/source.h>
@@ -128,6 +134,11 @@ struct GrOsMoBlocks
     gr::blocks::wavfile_sink::sptr recordingSink;
     QString recordingChannelId;
     QString recordingPath;
+    gr::blocks::file_sink::sptr rawIqSink;
+    QString rawIqRecordingPath;
+    QString rawIqMetadataPath;
+    QString rawIqStartedAtUtc;
+    quint64 rawIqStartSamples = 0;
 };
 
 struct GrOsmoSdrSource::Impl
@@ -544,6 +555,227 @@ struct GrOsmoSdrSource::Impl
         }
     }
 
+    bool writeRawIqMetadata(const QString &stoppedAtUtc = QString())
+    {
+        SdrSourceConfig configSnapshot;
+        SdrStreamStats statsSnapshot;
+        QString rawIqRecordingPath;
+        QString rawIqMetadataPath;
+        QString startedAtUtc;
+        quint64 startSamples = 0;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            configSnapshot = activeConfig;
+            statsSnapshot = activeStats;
+            rawIqRecordingPath = blocks.rawIqRecordingPath;
+            rawIqMetadataPath = blocks.rawIqMetadataPath;
+            startedAtUtc = blocks.rawIqStartedAtUtc;
+            startSamples = blocks.rawIqStartSamples;
+        }
+
+        if (rawIqMetadataPath.isEmpty()) {
+            return false;
+        }
+
+        QJsonObject metadata;
+        metadata.insert(QStringLiteral("format"), QStringLiteral("cf32_le"));
+        metadata.insert(QStringLiteral("sample_type"), QStringLiteral("complex_float32"));
+        metadata.insert(QStringLiteral("item_size_bytes"), 8);
+        metadata.insert(
+            QStringLiteral("center_frequency_hz"),
+            static_cast<double>(configSnapshot.centerFrequencyHz));
+        metadata.insert(QStringLiteral("sample_rate_hz"), configSnapshot.sampleRateHz);
+        metadata.insert(QStringLiteral("source_device_args"), configSnapshot.deviceArgs);
+        metadata.insert(QStringLiteral("raw_iq_path"), rawIqRecordingPath);
+        metadata.insert(QStringLiteral("started_at_utc"), startedAtUtc);
+        if (!stoppedAtUtc.isEmpty()) {
+            metadata.insert(QStringLiteral("stopped_at_utc"), stoppedAtUtc);
+        }
+        metadata.insert(
+            QStringLiteral("samples_recorded"),
+            static_cast<double>(statsSnapshot.samplesRead >= startSamples
+                    ? statsSnapshot.samplesRead - startSamples
+                    : 0));
+        metadata.insert(QStringLiteral("bytes_per_sample"), 8);
+
+        QFile metadataFile(rawIqMetadataPath);
+        if (!metadataFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            return false;
+        }
+
+        const auto bytes = QJsonDocument(metadata).toJson(QJsonDocument::Indented);
+        return metadataFile.write(bytes) == bytes.size();
+    }
+
+    bool startRawIqRecording(const QString &filePath, QString *errorMessage)
+    {
+        if (errorMessage) {
+            errorMessage->clear();
+        }
+        if (filePath.isEmpty()) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Raw IQ recording file path is empty");
+            }
+            return false;
+        }
+
+        gr::top_block_sptr topBlock;
+        osmosdr::source::sptr source;
+        quint64 startSamples = 0;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            topBlock = blocks.topBlock;
+            source = blocks.source;
+            startSamples = activeStats.samplesRead;
+            if (activeStats.rawIqRecording || blocks.rawIqSink) {
+                if (errorMessage) {
+                    *errorMessage = QStringLiteral("Raw IQ recording is already active");
+                }
+                return false;
+            }
+            if (!activeStats.running) {
+                if (errorMessage) {
+                    *errorMessage = QStringLiteral("SDR must be streaming before raw IQ recording can start");
+                }
+                return false;
+            }
+        }
+
+        if (!topBlock || !source) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("GNU Radio gr-osmosdr source is not open");
+            }
+            return false;
+        }
+
+        const QFileInfo fileInfo(filePath);
+        const QDir parentDir = fileInfo.absoluteDir();
+        if (!parentDir.exists() && !QDir().mkpath(parentDir.absolutePath())) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Could not create raw IQ recording directory %1")
+                    .arg(parentDir.absolutePath());
+            }
+            return false;
+        }
+
+        const QString absolutePath = fileInfo.absoluteFilePath();
+        const QString metadataPath = absolutePath + QStringLiteral(".json");
+        const QString startedAtUtc = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+        const auto localPath = absolutePath.toLocal8Bit();
+        gr::blocks::file_sink::sptr rawIqSink;
+
+        try {
+            rawIqSink = gr::blocks::file_sink::make(sizeof(gr_complex), localPath.constData(), false);
+            topBlock->lock();
+            try {
+                topBlock->connect(source, 0, rawIqSink, 0);
+            } catch (...) {
+                topBlock->unlock();
+                rawIqSink->close();
+                throw;
+            }
+            topBlock->unlock();
+        } catch (const std::exception &error) {
+            if (errorMessage) {
+                *errorMessage = errorText(error);
+            }
+            return false;
+        }
+
+        SdrStreamStats statsSnapshot;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            blocks.rawIqSink = std::move(rawIqSink);
+            blocks.rawIqRecordingPath = absolutePath;
+            blocks.rawIqMetadataPath = metadataPath;
+            blocks.rawIqStartedAtUtc = startedAtUtc;
+            blocks.rawIqStartSamples = startSamples;
+            activeStats.rawIqRecording = true;
+            activeStats.rawIqRecordingPath = absolutePath;
+            activeStats.rawIqMetadataPath = metadataPath;
+            statsSnapshot = activeStats;
+        }
+
+        if (!writeRawIqMetadata()) {
+            stopRawIqRecording(false);
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Could not write raw IQ metadata %1").arg(metadataPath);
+            }
+            return false;
+        }
+
+        emit owner->statsUpdated(statsSnapshot);
+        return true;
+    }
+
+    void stopRawIqRecording(bool notify = true)
+    {
+        gr::top_block_sptr topBlock;
+        osmosdr::source::sptr source;
+        gr::blocks::file_sink::sptr rawIqSink;
+        QString rawIqMetadataPath;
+        bool wasRunning = false;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            topBlock = blocks.topBlock;
+            source = blocks.source;
+            rawIqSink = blocks.rawIqSink;
+            rawIqMetadataPath = blocks.rawIqMetadataPath;
+            wasRunning = activeStats.running;
+        }
+
+        if (!rawIqSink) {
+            return;
+        }
+
+        try {
+            if (topBlock && source) {
+                if (wasRunning) {
+                    topBlock->lock();
+                }
+                try {
+                    topBlock->disconnect(source, 0, rawIqSink, 0);
+                } catch (...) {
+                    if (wasRunning) {
+                        topBlock->unlock();
+                    }
+                    throw;
+                }
+                if (wasRunning) {
+                    topBlock->unlock();
+                }
+            }
+            rawIqSink->close();
+        } catch (const std::exception &error) {
+            if (notify) {
+                emit owner->errorOccurred(errorText(error));
+            }
+            rawIqSink->close();
+        }
+
+        if (!writeRawIqMetadata(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)) && notify) {
+            emit owner->errorOccurred(
+                QStringLiteral("Could not update raw IQ metadata %1").arg(rawIqMetadataPath));
+        }
+
+        SdrStreamStats statsSnapshot;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            blocks.rawIqSink.reset();
+            blocks.rawIqRecordingPath.clear();
+            blocks.rawIqMetadataPath.clear();
+            blocks.rawIqStartedAtUtc.clear();
+            blocks.rawIqStartSamples = 0;
+            activeStats.rawIqRecording = false;
+            activeStats.rawIqRecordingPath.clear();
+            activeStats.rawIqMetadataPath.clear();
+            statsSnapshot = activeStats;
+        }
+        if (notify) {
+            emit owner->statsUpdated(statsSnapshot);
+        }
+    }
+
     bool setChannelSquelch(const QString &channelId,
         SdrSquelchMode mode,
         double thresholdDbfs,
@@ -630,6 +862,7 @@ struct GrOsmoSdrSource::Impl
     void stop(bool notify = true)
     {
         stopRecording(notify);
+        stopRawIqRecording(notify);
 
         bool hadRunningFlowgraph = false;
         {
@@ -871,6 +1104,22 @@ void GrOsmoSdrSource::stopRecording()
 bool GrOsmoSdrSource::recording() const
 {
     return stats().recording;
+}
+
+bool GrOsmoSdrSource::startRawIqRecording(const QString &filePath,
+    QString *errorMessage)
+{
+    return impl->startRawIqRecording(filePath, errorMessage);
+}
+
+void GrOsmoSdrSource::stopRawIqRecording()
+{
+    impl->stopRawIqRecording();
+}
+
+bool GrOsmoSdrSource::rawIqRecording() const
+{
+    return stats().rawIqRecording;
 }
 
 bool GrOsmoSdrSource::setChannelSquelch(const QString &channelId,

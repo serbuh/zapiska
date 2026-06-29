@@ -3,6 +3,7 @@
 #include <QCoreApplication>
 #include <QDebug>
 #include <QFile>
+#include <QFileInfo>
 #include <QTemporaryDir>
 #include <QTemporaryFile>
 #include <QThread>
@@ -166,6 +167,16 @@ int main(int argc, char *argv[])
         recordingPath = recordingDir.filePath(QStringLiteral("channel16.wav"));
     }
 
+    const bool recordRawIq = args.contains(QStringLiteral("--record-raw-iq"));
+    QString rawIqRecordingPath = optionalValueAfter(args, QStringLiteral("--record-raw-iq"));
+    if (recordRawIq && rawIqRecordingPath.isEmpty()) {
+        if (!recordingDir.isValid()) {
+            qCritical() << "failed to create temporary recording directory";
+            return 2;
+        }
+        rawIqRecordingPath = recordingDir.filePath(QStringLiteral("raw_iq.cfile"));
+    }
+
     zapiska::GrOsmoSdrSource source;
     std::atomic<int> spectrumFrames { 0 };
     QObject::connect(
@@ -224,6 +235,13 @@ int main(int argc, char *argv[])
         }
         qInfo() << "recording enabled:" << recordingPath;
     }
+    if (recordRawIq) {
+        if (!source.startRawIqRecording(rawIqRecordingPath, &error)) {
+            qCritical() << "raw IQ recording failed:" << error;
+            return 17;
+        }
+        qInfo() << "raw IQ recording enabled:" << rawIqRecordingPath;
+    }
 
     const int durationMs = intValueAfter(args, QStringLiteral("--duration-ms"), 200);
     QThread::msleep(static_cast<unsigned long>(durationMs));
@@ -235,6 +253,21 @@ int main(int argc, char *argv[])
         if (dataBytes == 0) {
             qCritical() << "smoke failed: recording WAV has no audio frames";
             return 15;
+        }
+    }
+    if (recordRawIq) {
+        source.stopRawIqRecording();
+        const QFileInfo rawIqInfo(rawIqRecordingPath);
+        const QFileInfo metadataInfo(rawIqRecordingPath + QStringLiteral(".json"));
+        qInfo() << "raw IQ bytes:" << rawIqInfo.size()
+                << "metadata bytes:" << metadataInfo.size();
+        if (rawIqInfo.size() <= 0) {
+            qCritical() << "smoke failed: raw IQ file has no samples";
+            return 18;
+        }
+        if (metadataInfo.size() <= 0) {
+            qCritical() << "smoke failed: raw IQ metadata was not written";
+            return 19;
         }
     }
 
