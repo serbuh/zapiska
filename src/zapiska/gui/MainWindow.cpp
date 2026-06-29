@@ -215,21 +215,25 @@ void MainWindow::buildUi()
     auto *root = new QWidget(this);
     auto *layout = new QVBoxLayout(root);
 
-    auto *toolbar = new QWidget(root);
-    auto *toolbarLayout = new QHBoxLayout(toolbar);
-    toolbarLayout->setContentsMargins(0, 0, 0, 0);
+    auto *sourceControls = new QWidget(root);
+    auto *sourceControlsLayout = new QHBoxLayout(sourceControls);
+    sourceControlsLayout->setContentsMargins(0, 0, 0, 0);
+
+    auto *playbackControls = new QWidget(root);
+    auto *playbackControlsLayout = new QHBoxLayout(playbackControls);
+    playbackControlsLayout->setContentsMargins(0, 0, 0, 0);
 
     auto *sdrMetrics = new QWidget(root);
     auto *sdrMetricsLayout = new QHBoxLayout(sdrMetrics);
     sdrMetricsLayout->setContentsMargins(0, 0, 0, 0);
 
-    auto *sourceControls = new QWidget(root);
-    auto *sourceControlsLayout = new QHBoxLayout(sourceControls);
-    sourceControlsLayout->setContentsMargins(0, 0, 0, 0);
-
     auto *channelControls = new QWidget(root);
     auto *channelControlsLayout = new QHBoxLayout(channelControls);
     channelControlsLayout->setContentsMargins(0, 0, 0, 0);
+
+    auto *channelFilterControls = new QWidget(root);
+    auto *channelFilterControlsLayout = new QHBoxLayout(channelFilterControls);
+    channelFilterControlsLayout->setContentsMargins(0, 0, 0, 0);
 
     centerFrequencySpin = new QDoubleSpinBox(sdrMetrics);
     centerFrequencySpin->setRange(1.000, 6000.000);
@@ -256,23 +260,16 @@ void MainWindow::buildUi()
     sdrStatusLabel = new QLabel(tr("SDR: ready"), root);
     sdrStatusLabel->setWordWrap(true);
 
-    connectButton = new QPushButton(tr("Connect"), toolbar);
-    startButton = new QPushButton(tr("Start"), toolbar);
+    connectButton = new QPushButton(tr("Connect"), sourceControls);
+    startButton = new QPushButton(tr("Start"), sourceControls);
     startButton->setEnabled(false);
-    monitorButton = new QPushButton(tr("Playing"), toolbar);
+    monitorButton = new QPushButton(tr("Mute All"), playbackControls);
     monitorButton->setEnabled(false);
-    recordButton = new QPushButton(tr("Record"), toolbar);
+    recordButton = new QPushButton(tr("Record"), playbackControls);
     recordButton->setEnabled(false);
-    rawIqRecordButton = new QPushButton(tr("Record IQ"), toolbar);
+    rawIqRecordButton = new QPushButton(tr("Record IQ"), playbackControls);
     rawIqRecordButton->setEnabled(false);
     waterfallWidget = new WaterfallWidget(root);
-
-    toolbarLayout->addWidget(connectButton);
-    toolbarLayout->addWidget(startButton);
-    toolbarLayout->addWidget(monitorButton);
-    toolbarLayout->addWidget(recordButton);
-    toolbarLayout->addWidget(rawIqRecordButton);
-    toolbarLayout->addStretch();
 
     sourceModeCombo = new QComboBox(sourceControls);
     sourceModeCombo->addItem(tr("HackRF"), QStringLiteral("hackrf"));
@@ -283,11 +280,15 @@ void MainWindow::buildUi()
     rawIqFileEdit->setReadOnly(true);
     rawIqFileEdit->setPlaceholderText(tr("No raw IQ file selected"));
 
+    sourceControlsLayout->addWidget(connectButton);
+    sourceControlsLayout->addWidget(startButton);
+    sourceControlsLayout->addSpacing(12);
     sourceControlsLayout->addWidget(new QLabel(tr("Source:"), sourceControls));
     sourceControlsLayout->addWidget(sourceModeCombo);
     sourceControlsLayout->addSpacing(12);
     sourceControlsLayout->addWidget(rawIqFileButton);
     sourceControlsLayout->addWidget(rawIqFileEdit, 1);
+    sourceControlsLayout->addStretch();
 
     sdrMetricsLayout->addWidget(new QLabel(tr("Center:"), sdrMetrics));
     sdrMetricsLayout->addWidget(centerFrequencySpin);
@@ -300,8 +301,8 @@ void MainWindow::buildUi()
     sdrMetricsLayout->addWidget(widebandPowerLabel);
     sdrMetricsLayout->addStretch();
 
-    fftButton = new QPushButton(tr("FFT Off"), channelControls);
-    showSelectedOnlyButton = new QPushButton(tr("Show All Channels"), channelControls);
+    fftButton = new QPushButton(tr("FFT Hide"), playbackControls);
+    showSelectedOnlyButton = new QPushButton(tr("Show All Channels"), channelFilterControls);
     fftZoomLabel = new QLabel(formatFftZoom(waterfallWidget->horizontalZoom()), channelControls);
     fftZoomLabel->setMinimumWidth(44);
 
@@ -319,15 +320,20 @@ void MainWindow::buildUi()
     fftScrollBar->setFixedWidth(180);
     fftScrollBar->setToolTip(tr("FFT horizontal scroll"));
 
-    channelControlsLayout->addWidget(fftButton);
-    channelControlsLayout->addSpacing(12);
+    playbackControlsLayout->addWidget(monitorButton);
+    playbackControlsLayout->addWidget(fftButton);
+    playbackControlsLayout->addWidget(recordButton);
+    playbackControlsLayout->addWidget(rawIqRecordButton);
+    playbackControlsLayout->addStretch();
+
     channelControlsLayout->addWidget(new QLabel(tr("Zoom:"), channelControls));
     channelControlsLayout->addWidget(fftZoomSlider);
     channelControlsLayout->addWidget(fftZoomLabel);
     channelControlsLayout->addWidget(fftScrollBar);
-    channelControlsLayout->addSpacing(12);
-    channelControlsLayout->addWidget(showSelectedOnlyButton);
     channelControlsLayout->addStretch();
+
+    channelFilterControlsLayout->addWidget(showSelectedOnlyButton);
+    channelFilterControlsLayout->addStretch();
 
     channelTable = new QTableWidget(root);
     channelTable->setColumnCount(8);
@@ -374,12 +380,13 @@ void MainWindow::buildUi()
     });
     connect(channelTable, &QTableWidget::itemChanged, this, &MainWindow::handleChannelItemChanged);
 
-    layout->addWidget(toolbar);
     layout->addWidget(sourceControls);
     layout->addWidget(sdrMetrics);
+    layout->addWidget(playbackControls);
     layout->addWidget(sdrStatusLabel);
     layout->addWidget(waterfallWidget);
     layout->addWidget(channelControls);
+    layout->addWidget(channelFilterControls);
     layout->addWidget(channelTable);
 
     setCentralWidget(root);
@@ -648,7 +655,6 @@ void MainWindow::refreshWaterfallChannels(const zapiska::SdrStreamStats *stats)
             channel.name,
             channel.frequencyHz,
             selected,
-            selected && liveAudioDesired && channelMonitorEnabledForChannel(channel.id),
             selected && channelUnsquelched(streamStats, channel.id),
         });
     }
@@ -659,7 +665,7 @@ void MainWindow::refreshWaterfallChannels(const zapiska::SdrStreamStats *stats)
 void MainWindow::refreshFftControls()
 {
     waterfallWidget->setVisible(fftVisible);
-    fftButton->setText(fftVisible ? tr("FFT Off") : tr("FFT On"));
+    fftButton->setText(fftVisible ? tr("FFT Hide") : tr("FFT Show"));
     fftZoomLabel->setVisible(fftVisible);
     fftZoomSlider->setVisible(fftVisible);
     fftScrollBar->setVisible(fftVisible);
@@ -950,7 +956,7 @@ void MainWindow::refreshSdrControls()
     connectButton->setEnabled(true);
     startButton->setText(isStreaming ? tr("Stop") : tr("Start"));
     startButton->setEnabled(state == zapiska::SdrSourceState::Open || isStreaming);
-    monitorButton->setText(liveAudioDesired ? tr("Playing") : tr("Muted"));
+    monitorButton->setText(liveAudioDesired ? tr("Mute All") : tr("Muted"));
     monitorButton->setEnabled(isOpen);
     recordButton->setText(recording ? tr("Stop Rec") : tr("Record"));
     recordButton->setEnabled(recording
