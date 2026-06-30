@@ -112,7 +112,9 @@ private:
     QLabel *volumeLabel = nullptr;
     QSlider *volumeSlider = nullptr;
     QPushButton *recordButton = nullptr;
+    QLabel *recordIndicator = nullptr;
     QPushButton *rawIqRecordButton = nullptr;
+    QLabel *rawIqRecordIndicator = nullptr;
     QPushButton *fftButton = nullptr;
     QPushButton *showSelectedOnlyButton = nullptr;
     QLabel *fftZoomTitleLabel = nullptr;

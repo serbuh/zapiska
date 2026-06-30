@@ -97,6 +97,36 @@ QString formatVolumePercent(int volumePercent)
     return QStringLiteral("%1%").arg(normalizedVolumePercent(volumePercent));
 }
 
+QString recordingIndicatorStyle(bool active)
+{
+    return QStringLiteral(
+            "QLabel {"
+            " min-width: 10px;"
+            " max-width: 10px;"
+            " min-height: 10px;"
+            " max-height: 10px;"
+            " border-radius: 5px;"
+            " border: 1px solid %1;"
+            " background-color: %2;"
+            "}")
+        .arg(
+            active ? QStringLiteral("#9b111e") : QStringLiteral("#73777f"),
+            active ? QStringLiteral("#d21f2b") : QStringLiteral("#a5a8ad"));
+}
+
+void setRecordingIndicatorActive(QLabel *indicator,
+    bool active,
+    const QString &activeTooltip,
+    const QString &inactiveTooltip)
+{
+    if (!indicator) {
+        return;
+    }
+
+    indicator->setStyleSheet(recordingIndicatorStyle(active));
+    indicator->setToolTip(active ? activeTooltip : inactiveTooltip);
+}
+
 QString formatChannelPower(const zapiska::SdrChannelStats &stats)
 {
     if (!stats.hasPower) {
@@ -283,6 +313,12 @@ void MainWindow::buildUi()
 
     auto *recordsControls = new QGroupBox(tr("Records"), topControls);
     auto *recordsControlsLayout = new QVBoxLayout(recordsControls);
+    auto *rawIqRecordRow = new QWidget(recordsControls);
+    auto *rawIqRecordRowLayout = new QHBoxLayout(rawIqRecordRow);
+    rawIqRecordRowLayout->setContentsMargins(0, 0, 0, 0);
+    auto *recordRow = new QWidget(recordsControls);
+    auto *recordRowLayout = new QHBoxLayout(recordRow);
+    recordRowLayout->setContentsMargins(0, 0, 0, 0);
 
     auto *playbackControls = new QWidget(root);
     auto *playbackControlsLayout = new QHBoxLayout(playbackControls);
@@ -338,10 +374,26 @@ void MainWindow::buildUi()
     volumeLabel->setMinimumWidth(44);
     volumeLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     volumeLabel->setEnabled(false);
-    recordButton = new QPushButton(tr("Record"), recordsControls);
+    recordButton = new QPushButton(tr("Record"), recordRow);
     recordButton->setEnabled(false);
-    rawIqRecordButton = new QPushButton(tr("Record IQ"), recordsControls);
+    recordIndicator = new QLabel(recordRow);
+    recordIndicator->setFixedSize(10, 10);
+    recordIndicator->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    setRecordingIndicatorActive(
+        recordIndicator,
+        false,
+        tr("Recording active"),
+        tr("Recording inactive"));
+    rawIqRecordButton = new QPushButton(tr("Record IQ"), rawIqRecordRow);
     rawIqRecordButton->setEnabled(false);
+    rawIqRecordIndicator = new QLabel(rawIqRecordRow);
+    rawIqRecordIndicator->setFixedSize(10, 10);
+    rawIqRecordIndicator->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    setRecordingIndicatorActive(
+        rawIqRecordIndicator,
+        false,
+        tr("Raw IQ recording active"),
+        tr("Raw IQ recording inactive"));
     auto *openRecordsButton = new QPushButton(tr("Open Records"), recordsControls);
     waterfallWidget = new WaterfallWidget(root);
 
@@ -404,8 +456,13 @@ void MainWindow::buildUi()
     sdrControlsLayout->addLayout(sdrMetricsLayout);
     statusBar()->addWidget(sdrStatusLabel, 1);
 
-    recordsControlsLayout->addWidget(rawIqRecordButton);
-    recordsControlsLayout->addWidget(recordButton);
+    rawIqRecordRowLayout->addWidget(rawIqRecordButton);
+    rawIqRecordRowLayout->addWidget(rawIqRecordIndicator);
+    recordRowLayout->addWidget(recordButton);
+    recordRowLayout->addWidget(recordIndicator);
+
+    recordsControlsLayout->addWidget(rawIqRecordRow);
+    recordsControlsLayout->addWidget(recordRow);
     recordsControlsLayout->addWidget(openRecordsButton);
     recordsControlsLayout->addStretch();
 
@@ -1169,8 +1226,18 @@ void MainWindow::refreshSdrControls()
     recordButton->setText(recording ? tr("Stop Rec") : tr("Record"));
     recordButton->setEnabled(recording
         || (isStreaming && channelHasRecordableAudio(stats, QStringLiteral("16"))));
+    setRecordingIndicatorActive(
+        recordIndicator,
+        recording,
+        tr("Recording active"),
+        tr("Recording inactive"));
     rawIqRecordButton->setText(rawIqRecording ? tr("Stop IQ") : tr("Record IQ"));
     rawIqRecordButton->setEnabled(rawIqRecording || isStreaming);
+    setRecordingIndicatorActive(
+        rawIqRecordIndicator,
+        rawIqRecording,
+        tr("Raw IQ recording active"),
+        tr("Raw IQ recording inactive"));
     centerFrequencySpin->setEnabled(!isOpen);
     sampleRateCombo->setEnabled(!isOpen);
     sourceModeCombo->setEnabled(!isOpen);
