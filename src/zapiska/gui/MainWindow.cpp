@@ -318,7 +318,7 @@ void MainWindow::buildUi()
 
     sampleCountLabel = new QLabel(tr("Samples: 0"), sdrControls);
     widebandPowerLabel = new QLabel(tr("Power: waiting"), sdrControls);
-    sdrStatusLabel = new QLabel(tr("SDR: ready"), sdrControls);
+    sdrStatusLabel = new QLabel(tr("SDR: ready"), statusBar());
     sdrStatusLabel->setWordWrap(false);
 
     connectButton = new QPushButton(tr("Connect"), sdrControls);
@@ -401,7 +401,7 @@ void MainWindow::buildUi()
 
     sdrControlsLayout->addLayout(sdrConnectionLayout);
     sdrControlsLayout->addLayout(sdrMetricsLayout);
-    sdrControlsLayout->addWidget(sdrStatusLabel);
+    statusBar()->addWidget(sdrStatusLabel, 1);
 
     recordsControlsLayout->addWidget(rawIqRecordButton);
     recordsControlsLayout->addWidget(recordButton);
