@@ -22,6 +22,8 @@ public:
     void stop() override;
     bool setLiveAudioEnabled(bool enabled, QString *errorMessage = nullptr) override;
     bool liveAudioEnabled() const override;
+    bool setLiveAudioVolume(double volume, QString *errorMessage = nullptr) override;
+    double liveAudioVolume() const override;
     bool startRecording(const QString &channelId,
         const QString &filePath,
         QString *errorMessage = nullptr) override;

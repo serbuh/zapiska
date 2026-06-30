@@ -54,6 +54,8 @@ constexpr double MaximumAutoSquelchThresholdDbfs = -10.0;
 constexpr int FftZoomSliderMinimum = 0;
 constexpr int FftZoomSliderMaximum = 60;
 constexpr int FftScrollMaximum = 1000;
+constexpr int VolumeSliderMinimum = 0;
+constexpr int VolumeSliderMaximum = 100;
 
 constexpr int SelectedColumn = 0;
 constexpr int ChannelNameColumn = 1;
@@ -77,6 +79,22 @@ QString formatWidebandPower(const zapiska::SdrStreamStats &stats)
     }
 
     return QLocale::c().toString(stats.widebandPowerDbfs, 'f', 1) + QStringLiteral(" dBFS");
+}
+
+int normalizedVolumePercent(int volumePercent)
+{
+    return std::clamp(volumePercent, VolumeSliderMinimum, VolumeSliderMaximum);
+}
+
+double liveAudioVolumeFromPercent(int volumePercent)
+{
+    return static_cast<double>(normalizedVolumePercent(volumePercent))
+        / static_cast<double>(VolumeSliderMaximum);
+}
+
+QString formatVolumePercent(int volumePercent)
+{
+    return QStringLiteral("%1%").arg(normalizedVolumePercent(volumePercent));
 }
 
 QString formatChannelPower(const zapiska::SdrChannelStats &stats)
@@ -308,8 +326,18 @@ void MainWindow::buildUi()
     startButton = new QPushButton(tr("Start"), sdrControls);
     startButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     startButton->setEnabled(false);
-    monitorButton = new QPushButton(tr("Mute All"), playbackControls);
-    monitorButton->setEnabled(false);
+    volumeSlider = new QSlider(Qt::Horizontal, playbackControls);
+    volumeSlider->setRange(VolumeSliderMinimum, VolumeSliderMaximum);
+    volumeSlider->setSingleStep(5);
+    volumeSlider->setPageStep(10);
+    volumeSlider->setFixedWidth(160);
+    volumeSlider->setToolTip(tr("Playback volume"));
+    volumeSlider->setValue(liveAudioVolumePercent);
+    volumeSlider->setEnabled(false);
+    volumeLabel = new QLabel(formatVolumePercent(liveAudioVolumePercent), playbackControls);
+    volumeLabel->setMinimumWidth(44);
+    volumeLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    volumeLabel->setEnabled(false);
     recordButton = new QPushButton(tr("Record"), recordsControls);
     recordButton->setEnabled(false);
     rawIqRecordButton = new QPushButton(tr("Record IQ"), recordsControls);
@@ -386,7 +414,10 @@ void MainWindow::buildUi()
     sdrControls->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     recordsControls->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 
-    playbackControlsLayout->addWidget(monitorButton);
+    playbackControlsLayout->addWidget(new QLabel(tr("Volume:"), playbackControls));
+    playbackControlsLayout->addWidget(volumeSlider);
+    playbackControlsLayout->addWidget(volumeLabel);
+    playbackControlsLayout->addSpacing(12);
     playbackControlsLayout->addWidget(fftButton);
     playbackControlsLayout->addStretch();
 
@@ -420,7 +451,7 @@ void MainWindow::buildUi()
 
     connect(connectButton, &QPushButton::clicked, this, &MainWindow::toggleSdrConnection);
     connect(startButton, &QPushButton::clicked, this, &MainWindow::toggleSdrStreaming);
-    connect(monitorButton, &QPushButton::clicked, this, &MainWindow::toggleLiveAudio);
+    connect(volumeSlider, &QSlider::valueChanged, this, &MainWindow::handleLiveAudioVolumeChanged);
     connect(recordButton, &QPushButton::clicked, this, &MainWindow::toggleRecording);
     connect(rawIqRecordButton, &QPushButton::clicked, this, &MainWindow::toggleRawIqRecording);
     connect(openRecordsButton, &QPushButton::clicked, this, &MainWindow::openRecordsDirectory);
@@ -907,9 +938,10 @@ void MainWindow::toggleSdrConnection()
     updateSdrTuningControls(sdrSource.config());
     sdrStatusLabel->setText(tr("SDR: connected"));
     statusBar()->showMessage(tr("Connected to %1").arg(sdrSource.backendName()), 3000);
-    if (!applyLiveAudioDesiredState()) {
-        liveAudioDesired = false;
-        applyLiveAudioDesiredState();
+    if (!applyLiveAudioVolume()) {
+        liveAudioVolumePercent = 0;
+        refreshLiveAudioVolumeControls();
+        applyLiveAudioVolume();
     }
     refreshWaterfallChannels();
     refreshSdrControls();
@@ -948,25 +980,34 @@ void MainWindow::stopSdr()
     refreshSdrControls();
 }
 
-void MainWindow::toggleLiveAudio()
+void MainWindow::handleLiveAudioVolumeChanged(int volumePercent)
 {
-    const bool previousDesired = liveAudioDesired;
-    liveAudioDesired = !liveAudioDesired;
-    if (!applyLiveAudioDesiredState()) {
-        liveAudioDesired = previousDesired;
-        applyLiveAudioDesiredState();
+    const int previousVolumePercent = liveAudioVolumePercent;
+    liveAudioVolumePercent = normalizedVolumePercent(volumePercent);
+    refreshLiveAudioVolumeControls();
+
+    if (!applyLiveAudioVolume()) {
+        liveAudioVolumePercent = previousVolumePercent;
+        refreshLiveAudioVolumeControls();
+        applyLiveAudioVolume();
         refreshWaterfallChannels();
         refreshSdrControls();
         return;
     }
 
-    sdrStatusLabel->setText(liveAudioDesired ? tr("SDR: playback enabled") : tr("SDR: playback muted"));
-    statusBar()->showMessage(liveAudioDesired ? tr("Playback enabled") : tr("Playback muted"), 3000);
+    const auto state = sdrSource.state();
+    if (state == zapiska::SdrSourceState::Open || state == zapiska::SdrSourceState::Streaming) {
+        sdrStatusLabel->setText(tr("SDR: playback volume %1").arg(formatVolumePercent(liveAudioVolumePercent)));
+        statusBar()->showMessage(
+            tr("Playback volume %1").arg(formatVolumePercent(liveAudioVolumePercent)),
+            1500);
+    }
+
     refreshWaterfallChannels();
     refreshSdrControls();
 }
 
-bool MainWindow::applyLiveAudioDesiredState()
+bool MainWindow::applyLiveAudioVolume()
 {
     const auto state = sdrSource.state();
     if (state != zapiska::SdrSourceState::Open && state != zapiska::SdrSourceState::Streaming) {
@@ -974,12 +1015,29 @@ bool MainWindow::applyLiveAudioDesiredState()
     }
 
     QString errorMessage;
-    if (!sdrSource.setLiveAudioEnabled(liveAudioDesired, &errorMessage)) {
+    if (!sdrSource.setLiveAudioVolume(liveAudioVolumeFromPercent(liveAudioVolumePercent), &errorMessage)) {
+        handleSdrError(errorMessage);
+        return false;
+    }
+    if (!sdrSource.setLiveAudioEnabled(liveAudioVolumePercent > 0, &errorMessage)) {
         handleSdrError(errorMessage);
         return false;
     }
 
     return true;
+}
+
+void MainWindow::refreshLiveAudioVolumeControls()
+{
+    if (!volumeSlider || !volumeLabel) {
+        return;
+    }
+
+    liveAudioVolumePercent = normalizedVolumePercent(liveAudioVolumePercent);
+
+    const QSignalBlocker blocker(volumeSlider);
+    volumeSlider->setValue(liveAudioVolumePercent);
+    volumeLabel->setText(formatVolumePercent(liveAudioVolumePercent));
 }
 
 void MainWindow::toggleRecording()
@@ -1103,8 +1161,9 @@ void MainWindow::refreshSdrControls()
     connectButton->setEnabled(true);
     startButton->setText(isStreaming ? tr("Stop") : tr("Start"));
     startButton->setEnabled(state == zapiska::SdrSourceState::Open || isStreaming);
-    monitorButton->setText(liveAudioDesired ? tr("Mute All") : tr("Muted"));
-    monitorButton->setEnabled(isOpen);
+    refreshLiveAudioVolumeControls();
+    volumeSlider->setEnabled(isOpen);
+    volumeLabel->setEnabled(isOpen);
     recordButton->setText(recording ? tr("Stop Rec") : tr("Record"));
     recordButton->setEnabled(recording
         || (isStreaming && channelHasRecordableAudio(stats, QStringLiteral("16"))));

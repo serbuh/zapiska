@@ -74,7 +74,7 @@ This document tracks the current implementation state for Zapiska's SDR recorder
   - GNU Radio audio sink backend,
   - per-channel audio gains,
   - mixed playback of all active channel receivers,
-  - recorder GUI Monitor/Mute control.
+  - recorder GUI volume slider and channel Monitor/Mute controls.
 - Extended `zapiska-sdr-smoke` with `--live-audio` for explicit monitor-path checks.
 - Added audio-level squelch:
   - default per-channel threshold,

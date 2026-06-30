@@ -22,6 +22,7 @@
 #include <osmosdr/source.h>
 
 #include <algorithm>
+#include <cmath>
 #include <exception>
 #include <iterator>
 #include <mutex>
@@ -116,6 +117,15 @@ QVector<SdrChannelConfig> enabledChannelConfigs(const SdrSourceConfig &config)
     }
 
     return enabledChannels;
+}
+
+double normalizedLiveAudioVolume(double volume)
+{
+    if (!std::isfinite(volume)) {
+        return 0.0;
+    }
+
+    return std::clamp(volume, 0.0, 1.0);
 }
 
 } // namespace
@@ -227,8 +237,10 @@ struct GrOsmoSdrSource::Impl
         }
 
         const bool liveAudioEnabled = statsSnapshot.liveAudioEnabled;
+        const float liveAudioVolume = static_cast<float>(
+            normalizedLiveAudioVolume(statsSnapshot.liveAudioVolume));
         const float openChannelGain = !blocks.audioGains.empty()
-            ? 1.0F / static_cast<float>(blocks.audioGains.size())
+            ? liveAudioVolume / static_cast<float>(blocks.audioGains.size())
             : 0.0F;
 
         for (std::size_t index = 0; index < blocks.audioGains.size(); ++index) {
@@ -375,6 +387,21 @@ struct GrOsmoSdrSource::Impl
         {
             std::lock_guard<std::mutex> lock(mutex);
             activeStats.liveAudioEnabled = enabled;
+        }
+        refreshLiveAudioGains();
+        emitStatsSnapshot();
+        return true;
+    }
+
+    bool setLiveAudioVolume(double volume, QString *errorMessage)
+    {
+        if (errorMessage) {
+            errorMessage->clear();
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            activeStats.liveAudioVolume = normalizedLiveAudioVolume(volume);
         }
         refreshLiveAudioGains();
         emitStatsSnapshot();
@@ -1087,6 +1114,16 @@ bool GrOsmoSdrSource::setLiveAudioEnabled(bool enabled, QString *errorMessage)
 bool GrOsmoSdrSource::liveAudioEnabled() const
 {
     return stats().liveAudioEnabled;
+}
+
+bool GrOsmoSdrSource::setLiveAudioVolume(double volume, QString *errorMessage)
+{
+    return impl->setLiveAudioVolume(volume, errorMessage);
+}
+
+double GrOsmoSdrSource::liveAudioVolume() const
+{
+    return stats().liveAudioVolume;
 }
 
 bool GrOsmoSdrSource::startRecording(const QString &channelId,

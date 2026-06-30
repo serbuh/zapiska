@@ -83,6 +83,7 @@ struct SdrStreamStats
 {
     bool running = false;
     bool liveAudioEnabled = false;
+    double liveAudioVolume = 1.0;
     bool recording = false;
     QString recordingChannelId;
     QString recordingPath;
@@ -130,6 +131,8 @@ public:
     virtual void stop() = 0;
     virtual bool setLiveAudioEnabled(bool enabled, QString *errorMessage = nullptr) = 0;
     virtual bool liveAudioEnabled() const = 0;
+    virtual bool setLiveAudioVolume(double volume, QString *errorMessage = nullptr) = 0;
+    virtual double liveAudioVolume() const = 0;
     virtual bool startRecording(const QString &channelId,
         const QString &filePath,
         QString *errorMessage = nullptr) = 0;

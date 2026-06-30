@@ -55,8 +55,9 @@ private:
     void toggleSdrStreaming();
     void startSdr();
     void stopSdr();
-    void toggleLiveAudio();
-    bool applyLiveAudioDesiredState();
+    void handleLiveAudioVolumeChanged(int volumePercent);
+    bool applyLiveAudioVolume();
+    void refreshLiveAudioVolumeControls();
     void toggleRecording();
     void toggleRawIqRecording();
     void openRecordsDirectory();
@@ -108,7 +109,8 @@ private:
     QLabel *sdrStatusLabel = nullptr;
     QPushButton *connectButton = nullptr;
     QPushButton *startButton = nullptr;
-    QPushButton *monitorButton = nullptr;
+    QLabel *volumeLabel = nullptr;
+    QSlider *volumeSlider = nullptr;
     QPushButton *recordButton = nullptr;
     QPushButton *rawIqRecordButton = nullptr;
     QPushButton *fftButton = nullptr;
@@ -128,5 +130,5 @@ private:
     Qt::SortOrder channelSortOrder = Qt::AscendingOrder;
     bool showSelectedOnly = true;
     bool fftVisible = true;
-    bool liveAudioDesired = true;
+    int liveAudioVolumePercent = 100;
 };
