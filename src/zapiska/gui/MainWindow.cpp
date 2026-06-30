@@ -15,6 +15,7 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QGroupBox>
 #include <QHeaderView>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -28,6 +29,7 @@
 #include <QScrollBar>
 #include <QSettings>
 #include <QSignalBlocker>
+#include <QSizePolicy>
 #include <QSlider>
 #include <QStandardPaths>
 #include <QStatusBar>
@@ -252,17 +254,21 @@ void MainWindow::buildUi()
     auto *root = new QWidget(this);
     auto *layout = new QVBoxLayout(root);
 
-    auto *sourceControls = new QWidget(root);
-    auto *sourceControlsLayout = new QHBoxLayout(sourceControls);
-    sourceControlsLayout->setContentsMargins(0, 0, 0, 0);
+    auto *topControls = new QWidget(root);
+    auto *topControlsLayout = new QHBoxLayout(topControls);
+    topControlsLayout->setContentsMargins(0, 0, 0, 0);
+
+    auto *sdrControls = new QGroupBox(tr("SDR"), topControls);
+    auto *sdrControlsLayout = new QVBoxLayout(sdrControls);
+    auto *sdrConnectionLayout = new QHBoxLayout;
+    auto *sdrMetricsLayout = new QHBoxLayout;
+
+    auto *recordsControls = new QGroupBox(tr("Records"), topControls);
+    auto *recordsControlsLayout = new QVBoxLayout(recordsControls);
 
     auto *playbackControls = new QWidget(root);
     auto *playbackControlsLayout = new QHBoxLayout(playbackControls);
     playbackControlsLayout->setContentsMargins(0, 0, 0, 0);
-
-    auto *sdrMetrics = new QWidget(root);
-    auto *sdrMetricsLayout = new QHBoxLayout(sdrMetrics);
-    sdrMetricsLayout->setContentsMargins(0, 0, 0, 0);
 
     auto *channelControls = new QWidget(root);
     auto *channelControlsLayout = new QHBoxLayout(channelControls);
@@ -272,7 +278,7 @@ void MainWindow::buildUi()
     auto *channelFilterControlsLayout = new QHBoxLayout(channelFilterControls);
     channelFilterControlsLayout->setContentsMargins(0, 0, 0, 0);
 
-    centerFrequencySpin = new QDoubleSpinBox(sdrMetrics);
+    centerFrequencySpin = new QDoubleSpinBox(sdrControls);
     centerFrequencySpin->setRange(1.000, 6000.000);
     centerFrequencySpin->setDecimals(3);
     centerFrequencySpin->setSingleStep(0.025);
@@ -280,7 +286,7 @@ void MainWindow::buildUi()
     centerFrequencySpin->setKeyboardTracking(false);
     centerFrequencySpin->setValue(static_cast<double>(zapiska::DefaultSdrCenterFrequencyHz) / 1000000.0);
 
-    sampleRateCombo = new QComboBox(sdrMetrics);
+    sampleRateCombo = new QComboBox(sdrControls);
     sampleRateCombo->addItem(tr("2M"), 2000000);
     sampleRateCombo->addItem(tr("4M"), 4000000);
     sampleRateCombo->addItem(tr("8M"), 8000000);
@@ -292,52 +298,38 @@ void MainWindow::buildUi()
         sampleRateCombo->setCurrentIndex(defaultSampleRateIndex);
     }
 
-    sampleCountLabel = new QLabel(tr("Samples: 0"), sdrMetrics);
-    widebandPowerLabel = new QLabel(tr("Power: waiting"), sdrMetrics);
-    sdrStatusLabel = new QLabel(tr("SDR: ready"), root);
-    sdrStatusLabel->setWordWrap(true);
+    sampleCountLabel = new QLabel(tr("Samples: 0"), sdrControls);
+    widebandPowerLabel = new QLabel(tr("Power: waiting"), sdrControls);
+    sdrStatusLabel = new QLabel(tr("SDR: ready"), sdrControls);
+    sdrStatusLabel->setWordWrap(false);
 
-    connectButton = new QPushButton(tr("Connect"), sourceControls);
-    startButton = new QPushButton(tr("Start"), sourceControls);
+    connectButton = new QPushButton(tr("Connect"), sdrControls);
+    connectButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    startButton = new QPushButton(tr("Start"), sdrControls);
+    startButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     startButton->setEnabled(false);
     monitorButton = new QPushButton(tr("Mute All"), playbackControls);
     monitorButton->setEnabled(false);
-    recordButton = new QPushButton(tr("Record"), playbackControls);
+    recordButton = new QPushButton(tr("Record"), recordsControls);
     recordButton->setEnabled(false);
-    rawIqRecordButton = new QPushButton(tr("Record IQ"), playbackControls);
+    rawIqRecordButton = new QPushButton(tr("Record IQ"), recordsControls);
     rawIqRecordButton->setEnabled(false);
-    auto *openRecordsButton = new QPushButton(tr("Open records"), playbackControls);
+    auto *openRecordsButton = new QPushButton(tr("Open Records"), recordsControls);
     waterfallWidget = new WaterfallWidget(root);
 
-    sourceModeCombo = new QComboBox(sourceControls);
+    sourceModeCombo = new QComboBox(sdrControls);
     sourceModeCombo->addItem(tr("HackRF"), QStringLiteral("hackrf"));
     sourceModeCombo->addItem(tr("IQ File"), QStringLiteral("iq-file"));
+    sourceModeCombo->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    sourceModeCombo->setFixedWidth(sourceModeCombo->sizeHint().width());
 
-    rawIqFileButton = new QPushButton(tr("Open IQ"), sourceControls);
-    rawIqFileEdit = new QLineEdit(sourceControls);
+    rawIqFileButton = new QPushButton(tr("Open IQ"), sdrControls);
+    rawIqFileButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    rawIqFileEdit = new QLineEdit(sdrControls);
     rawIqFileEdit->setReadOnly(true);
     rawIqFileEdit->setPlaceholderText(tr("No raw IQ file selected"));
-
-    sourceControlsLayout->addWidget(connectButton);
-    sourceControlsLayout->addWidget(startButton);
-    sourceControlsLayout->addSpacing(12);
-    sourceControlsLayout->addWidget(new QLabel(tr("Source:"), sourceControls));
-    sourceControlsLayout->addWidget(sourceModeCombo);
-    sourceControlsLayout->addSpacing(12);
-    sourceControlsLayout->addWidget(rawIqFileButton);
-    sourceControlsLayout->addWidget(rawIqFileEdit, 1);
-    sourceControlsLayout->addStretch();
-
-    sdrMetricsLayout->addWidget(new QLabel(tr("Center:"), sdrMetrics));
-    sdrMetricsLayout->addWidget(centerFrequencySpin);
-    sdrMetricsLayout->addSpacing(16);
-    sdrMetricsLayout->addWidget(new QLabel(tr("Sample rate:"), sdrMetrics));
-    sdrMetricsLayout->addWidget(sampleRateCombo);
-    sdrMetricsLayout->addSpacing(16);
-    sdrMetricsLayout->addWidget(sampleCountLabel);
-    sdrMetricsLayout->addSpacing(16);
-    sdrMetricsLayout->addWidget(widebandPowerLabel);
-    sdrMetricsLayout->addStretch();
+    rawIqFileEdit->setMinimumWidth(220);
+    rawIqFileEdit->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 
     fftButton = new QPushButton(tr("FFT Hide"), playbackControls);
     showSelectedOnlyButton = new QPushButton(tr("Show All Channels"), channelFilterControls);
@@ -358,11 +350,44 @@ void MainWindow::buildUi()
     fftScrollBar->setFixedWidth(180);
     fftScrollBar->setToolTip(tr("FFT horizontal scroll"));
 
+    sdrConnectionLayout->addWidget(connectButton);
+    sdrConnectionLayout->addWidget(startButton);
+    sdrConnectionLayout->addSpacing(12);
+    sdrConnectionLayout->addWidget(new QLabel(tr("Source:"), sdrControls));
+    sdrConnectionLayout->addWidget(sourceModeCombo);
+    sdrConnectionLayout->addSpacing(12);
+    sdrConnectionLayout->addWidget(rawIqFileButton);
+    sdrConnectionLayout->addWidget(rawIqFileEdit);
+    sdrConnectionLayout->addStretch();
+
+    sdrMetricsLayout->addWidget(new QLabel(tr("Center:"), sdrControls));
+    sdrMetricsLayout->addWidget(centerFrequencySpin);
+    sdrMetricsLayout->addSpacing(16);
+    sdrMetricsLayout->addWidget(new QLabel(tr("Sample rate:"), sdrControls));
+    sdrMetricsLayout->addWidget(sampleRateCombo);
+    sdrMetricsLayout->addSpacing(16);
+    sdrMetricsLayout->addWidget(sampleCountLabel);
+    sdrMetricsLayout->addSpacing(16);
+    sdrMetricsLayout->addWidget(widebandPowerLabel);
+    sdrMetricsLayout->addStretch();
+
+    sdrControlsLayout->addLayout(sdrConnectionLayout);
+    sdrControlsLayout->addLayout(sdrMetricsLayout);
+    sdrControlsLayout->addWidget(sdrStatusLabel);
+
+    recordsControlsLayout->addWidget(rawIqRecordButton);
+    recordsControlsLayout->addWidget(recordButton);
+    recordsControlsLayout->addWidget(openRecordsButton);
+    recordsControlsLayout->addStretch();
+
+    topControlsLayout->addWidget(sdrControls, 1);
+    topControlsLayout->addWidget(recordsControls);
+    topControls->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    sdrControls->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    recordsControls->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+
     playbackControlsLayout->addWidget(monitorButton);
     playbackControlsLayout->addWidget(fftButton);
-    playbackControlsLayout->addWidget(recordButton);
-    playbackControlsLayout->addWidget(rawIqRecordButton);
-    playbackControlsLayout->addWidget(openRecordsButton);
     playbackControlsLayout->addStretch();
 
     channelControlsLayout->addWidget(new QLabel(tr("Zoom:"), channelControls));
@@ -426,10 +451,8 @@ void MainWindow::buildUi()
         &MainWindow::handleChannelHeaderClicked);
     connect(channelTable, &QTableWidget::itemChanged, this, &MainWindow::handleChannelItemChanged);
 
-    layout->addWidget(sourceControls);
-    layout->addWidget(sdrMetrics);
+    layout->addWidget(topControls);
     layout->addWidget(playbackControls);
-    layout->addWidget(sdrStatusLabel);
     layout->addWidget(waterfallWidget);
     layout->addWidget(channelControls);
     layout->addWidget(channelFilterControls);
