@@ -541,6 +541,7 @@
       "frequency_mhz": 156.8,
       "mode": "nfm",
       "modulation": "Narrow FM",
+      "notes": "Distress",
       "bandwidth_hz": 10000,
       "tags": [
         "Marine"
@@ -989,6 +990,7 @@
       "frequency_mhz": 160.7,
       "mode": "nfm",
       "modulation": "Narrow FM",
+      "notes": "Observed data-like signal; coast-station side of duplex channel 02.",
       "bandwidth_hz": 10000,
       "tags": [
         "Marine"

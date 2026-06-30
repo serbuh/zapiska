@@ -45,6 +45,7 @@ private:
     void saveChannelMonitorSettings() const;
     void loadChannelSquelchSettings();
     void saveChannelSquelchSettings() const;
+    void handleChannelNotesChanged(QTableWidgetItem *item);
     void updateChannelSelectionControls();
     bool isChannelSelected(const QString &id) const;
     bool channelMonitorEnabledForChannel(const QString &id) const;
@@ -128,6 +129,7 @@ private:
     QSet<QString> selectedChannelIds;
     QSet<QString> mutedMonitorChannelIds;
     QVector<zapiska::ChannelConfig> channelCatalog;
+    QString channelCatalogPath;
     QString rawIqReplayPath;
     int channelSortColumn = -1;
     Qt::SortOrder channelSortOrder = Qt::AscendingOrder;

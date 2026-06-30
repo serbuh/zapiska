@@ -6,11 +6,13 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonValue>
 #include <QLocale>
+#include <QSaveFile>
 
 namespace zapiska {
 
@@ -124,6 +126,7 @@ QVector<ChannelConfig> loadChannelCatalogFromFile(const QString &filePath, QStri
         channel.bandwidthHz = static_cast<int>(integerValue(object, "bandwidth_hz"));
         channel.enabledByDefault = boolValue(object, "enabled_by_default");
         channel.recordByDefault = boolValue(object, "record_by_default");
+        channel.notes = stringValue(object, "notes");
         channels.append(channel);
     }
 
@@ -134,12 +137,104 @@ QVector<ChannelConfig> loadChannelCatalogFromFile(const QString &filePath, QStri
     return channels;
 }
 
+bool saveChannelCatalogNotesToFile(
+    const QString &filePath,
+    const QVector<ChannelConfig> &channels,
+    QString *errorMessage)
+{
+    if (errorMessage) {
+        errorMessage->clear();
+    }
+
+    if (filePath.isEmpty()) {
+        if (errorMessage) {
+            *errorMessage = QStringLiteral("Channel catalog path is empty");
+        }
+        return false;
+    }
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        if (errorMessage) {
+            *errorMessage = QStringLiteral("Unable to open %1: %2")
+                .arg(filePath, file.errorString());
+        }
+        return false;
+    }
+
+    QJsonParseError parseError;
+    const auto document = QJsonDocument::fromJson(file.readAll(), &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+        if (errorMessage) {
+            *errorMessage = QStringLiteral("Unable to parse %1: %2")
+                .arg(filePath, parseError.errorString());
+        }
+        return false;
+    }
+
+    QHash<QString, QString> notesById;
+    for (const auto &channel : channels) {
+        notesById.insert(channel.id, channel.notes);
+    }
+
+    QJsonObject root = document.object();
+    QJsonArray channelValues = root.value(QStringLiteral("channels")).toArray();
+    for (int index = 0; index < channelValues.size(); ++index) {
+        if (!channelValues.at(index).isObject()) {
+            continue;
+        }
+
+        QJsonObject channelObject = channelValues.at(index).toObject();
+        const QString id = stringValue(channelObject, "id");
+        if (!notesById.contains(id)) {
+            continue;
+        }
+
+        const QString notes = notesById.value(id);
+        if (notes.isEmpty()) {
+            channelObject.remove(QStringLiteral("notes"));
+        } else {
+            channelObject.insert(QStringLiteral("notes"), notes);
+        }
+        channelValues.replace(index, channelObject);
+    }
+    root.insert(QStringLiteral("channels"), channelValues);
+
+    QSaveFile saveFile(filePath);
+    if (!saveFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        if (errorMessage) {
+            *errorMessage = QStringLiteral("Unable to write %1: %2")
+                .arg(filePath, saveFile.errorString());
+        }
+        return false;
+    }
+
+    const auto bytes = QJsonDocument(root).toJson(QJsonDocument::Indented);
+    if (saveFile.write(bytes) != bytes.size()) {
+        if (errorMessage) {
+            *errorMessage = QStringLiteral("Unable to write %1: %2")
+                .arg(filePath, saveFile.errorString());
+        }
+        return false;
+    }
+
+    if (!saveFile.commit()) {
+        if (errorMessage) {
+            *errorMessage = QStringLiteral("Unable to save %1: %2")
+                .arg(filePath, saveFile.errorString());
+        }
+        return false;
+    }
+
+    return true;
+}
+
 QString defaultChannelCatalogPath()
 {
     const QString appDir = QCoreApplication::applicationDirPath();
     const QStringList candidates = {
-        QDir(appDir).filePath(QStringLiteral("data/presets/marine-vhf.json")),
         QDir::current().filePath(QStringLiteral("data/presets/marine-vhf.json")),
+        QDir(appDir).filePath(QStringLiteral("data/presets/marine-vhf.json")),
     };
 
     for (const auto &candidate : candidates) {

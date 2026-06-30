@@ -15,11 +15,17 @@ struct ChannelConfig
     int bandwidthHz = 0;
     bool enabledByDefault = false;
     bool recordByDefault = false;
+    QString notes;
 };
 
 QVector<ChannelConfig> defaultChannelCatalog();
 
 QVector<ChannelConfig> loadChannelCatalogFromFile(const QString &filePath, QString *errorMessage = nullptr);
+
+bool saveChannelCatalogNotesToFile(
+    const QString &filePath,
+    const QVector<ChannelConfig> &channels,
+    QString *errorMessage = nullptr);
 
 QString defaultChannelCatalogPath();
 

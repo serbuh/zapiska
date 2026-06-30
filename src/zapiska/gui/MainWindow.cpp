@@ -65,6 +65,7 @@ constexpr int MonitorColumn = 4;
 constexpr int ThresholdColumn = 5;
 constexpr int StateColumn = 6;
 constexpr int RecordingColumn = 7;
+constexpr int NotesColumn = 8;
 constexpr QRgb UnsquelchedStateColor = qRgba(255, 135, 30, 90);
 
 QString formatSampleCount(quint64 samplesRead)
@@ -134,6 +135,13 @@ QString formatChannelPower(const zapiska::SdrChannelStats &stats)
     }
 
     return QLocale::c().toString(stats.powerDbfs, 'f', 1) + QStringLiteral(" dBFS");
+}
+
+QTableWidgetItem *readOnlyTableItem(const QString &text = QString())
+{
+    auto *item = new QTableWidgetItem(text);
+    item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+    return item;
 }
 
 QString formatSquelchState(const zapiska::SdrChannelStats &stats)
@@ -489,7 +497,7 @@ void MainWindow::buildUi()
     channelFilterControlsLayout->addStretch();
 
     channelTable = new QTableWidget(root);
-    channelTable->setColumnCount(8);
+    channelTable->setColumnCount(9);
     channelTable->setHorizontalHeaderLabels({
         tr("Selected"),
         tr("Ch"),
@@ -499,11 +507,15 @@ void MainWindow::buildUi()
         tr("Threshold"),
         tr("State"),
         tr("Recording"),
+        tr("Notes"),
     });
     channelTable->horizontalHeader()->setStretchLastSection(true);
     channelTable->horizontalHeader()->setSectionsClickable(true);
     channelTable->verticalHeader()->setVisible(false);
-    channelTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    channelTable->setEditTriggers(
+        QAbstractItemView::DoubleClicked
+        | QAbstractItemView::EditKeyPressed
+        | QAbstractItemView::SelectedClicked);
     channelTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     channelTable->setSelectionMode(QAbstractItemView::SingleSelection);
 
@@ -559,10 +571,12 @@ void MainWindow::loadChannels()
     const QString path = zapiska::defaultChannelCatalogPath();
     QString errorMessage;
     channelCatalog = zapiska::loadChannelCatalogFromFile(path, &errorMessage);
+    channelCatalogPath = path;
     selectedChannelIds.clear();
 
     if (channelCatalog.isEmpty()) {
         channelCatalog = zapiska::defaultChannelCatalog();
+        channelCatalogPath.clear();
         sdrStatusLabel->setText(tr("Channels: default catalog (%1)").arg(errorMessage));
     }
 
@@ -726,8 +740,8 @@ void MainWindow::refreshChannelTable()
         selectedItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsUserCheckable | Qt::ItemIsEnabled);
         channelTable->setItem(row, SelectedColumn, selectedItem);
 
-        channelTable->setItem(row, ChannelNameColumn, new QTableWidgetItem(channel.name));
-        channelTable->setItem(row, FrequencyColumn, new QTableWidgetItem(zapiska::formatFrequencyMHz(channel.frequencyHz)));
+        channelTable->setItem(row, ChannelNameColumn, readOnlyTableItem(channel.name));
+        channelTable->setItem(row, FrequencyColumn, readOnlyTableItem(zapiska::formatFrequencyMHz(channel.frequencyHz)));
 
         auto *signalMeter = new SquelchSignalMeter(channelTable);
         signalMeter->setRange(0, 100);
@@ -781,8 +795,15 @@ void MainWindow::refreshChannelTable()
         thresholdLayout->addWidget(resetSquelchButton);
         channelTable->setCellWidget(row, ThresholdColumn, thresholdContainer);
 
-        channelTable->setItem(row, StateColumn, new QTableWidgetItem());
-        channelTable->setItem(row, RecordingColumn, new QTableWidgetItem());
+        channelTable->setItem(row, StateColumn, readOnlyTableItem());
+        channelTable->setItem(row, RecordingColumn, readOnlyTableItem());
+
+        auto *notesItem = new QTableWidgetItem(channel.notes);
+        notesItem->setData(Qt::UserRole, channel.id);
+        notesItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEditable | Qt::ItemIsEnabled);
+        notesItem->setToolTip(channel.notes);
+        channelTable->setItem(row, NotesColumn, notesItem);
+
         resetChannelDisplay(row);
     }
 
@@ -1702,7 +1723,16 @@ bool MainWindow::currentChannelPowerDbfs(const QString &id, double *powerDbfs) c
 
 void MainWindow::handleChannelItemChanged(QTableWidgetItem *item)
 {
-    if (!item || item->column() != SelectedColumn) {
+    if (!item) {
+        return;
+    }
+
+    if (item->column() == NotesColumn) {
+        handleChannelNotesChanged(item);
+        return;
+    }
+
+    if (item->column() != SelectedColumn) {
         return;
     }
 
@@ -1742,6 +1772,50 @@ void MainWindow::handleChannelItemChanged(QTableWidgetItem *item)
     resetChannelDisplay(item->row());
     refreshChannelVisibility();
     refreshWaterfallChannels();
+}
+
+void MainWindow::handleChannelNotesChanged(QTableWidgetItem *item)
+{
+    if (!item || item->column() != NotesColumn) {
+        return;
+    }
+
+    QString id = item->data(Qt::UserRole).toString();
+    if (id.isEmpty() && item->row() >= 0 && item->row() < channelCatalog.size()) {
+        id = channelCatalog.at(item->row()).id;
+    }
+
+    const int row = channelRow(id);
+    if (row < 0) {
+        return;
+    }
+
+    const QString previousNotes = channelCatalog.at(row).notes;
+    const QString nextNotes = item->text();
+    if (nextNotes == previousNotes) {
+        item->setToolTip(nextNotes);
+        return;
+    }
+
+    channelCatalog[row].notes = nextNotes;
+
+    QString errorMessage;
+    if (channelCatalogPath.isEmpty()
+        || !zapiska::saveChannelCatalogNotesToFile(channelCatalogPath, channelCatalog, &errorMessage)) {
+        channelCatalog[row].notes = previousNotes;
+
+        const QSignalBlocker blocker(channelTable);
+        item->setText(previousNotes);
+        item->setToolTip(previousNotes);
+
+        statusBar()->showMessage(
+            errorMessage.isEmpty() ? tr("Unable to save channel notes") : errorMessage,
+            6000);
+        return;
+    }
+
+    item->setToolTip(nextNotes);
+    statusBar()->showMessage(tr("Channel notes saved"), 3000);
 }
 
 void MainWindow::toggleChannelMonitor(const QString &id)
