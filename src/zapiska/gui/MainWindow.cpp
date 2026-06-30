@@ -222,15 +222,20 @@ QString recordsDirectoryPath()
     return QDir(projectRootPath()).filePath(QStringLiteral("records"));
 }
 
-bool channelUnsquelched(const zapiska::SdrStreamStats &stats, const QString &id)
+QSet<QString> unsquelchedChannelIds(const zapiska::SdrStreamStats &stats)
 {
-    for (const auto &channelStats : stats.channelStats) {
-        if (channelStats.id == id) {
-            return channelStats.hasSquelch && channelStats.squelchOpen;
-        }
+    QSet<QString> ids;
+    if (!stats.running) {
+        return ids;
     }
 
-    return false;
+    ids.reserve(stats.channelStats.size());
+    for (const auto &channelStats : stats.channelStats) {
+        if (channelStats.hasSquelch && channelStats.squelchOpen) {
+            ids.insert(channelStats.id);
+        }
+    }
+    return ids;
 }
 
 class SquelchSignalMeter : public QProgressBar
@@ -421,6 +426,8 @@ void MainWindow::buildUi()
 
     fftButton = new QPushButton(tr("FFT Hide"), playbackControls);
     showSelectedOnlyButton = new QPushButton(tr("Show All Channels"), channelFilterControls);
+    activeChannelsLabel = new QLabel(tr("Active channels:"), channelFilterControls);
+    activeChannelsLabel->setWordWrap(false);
     fftZoomTitleLabel = new QLabel(tr("Zoom:"), channelControls);
     fftZoomLabel = new QLabel(formatFftZoom(waterfallWidget->horizontalZoom()), channelControls);
     fftZoomLabel->setMinimumWidth(44);
@@ -494,6 +501,8 @@ void MainWindow::buildUi()
     channelControlsLayout->addStretch();
 
     channelFilterControlsLayout->addWidget(showSelectedOnlyButton);
+    channelFilterControlsLayout->addSpacing(16);
+    channelFilterControlsLayout->addWidget(activeChannelsLabel);
     channelFilterControlsLayout->addStretch();
 
     channelTable = new QTableWidget(root);
@@ -584,6 +593,7 @@ void MainWindow::loadChannels()
     loadChannelMonitorSettings();
     loadChannelSquelchSettings();
     refreshChannelTable();
+    refreshActiveChannelsLabel();
     refreshWaterfallChannels();
 }
 
@@ -884,9 +894,43 @@ void MainWindow::sortChannelCatalog()
     });
 }
 
+void MainWindow::refreshActiveChannelsLabel(const zapiska::SdrStreamStats *stats)
+{
+    zapiska::SdrStreamStats statsSnapshot;
+    const zapiska::SdrStreamStats *streamStats = stats;
+    if (!streamStats) {
+        statsSnapshot = sdrSource.stats();
+        streamStats = &statsSnapshot;
+    }
+
+    QStringList activeChannels;
+    const QSet<QString> activeIds = unsquelchedChannelIds(*streamStats);
+    for (const auto &channel : channelCatalog) {
+        if (isChannelSelected(channel.id) && activeIds.contains(channel.id)) {
+            activeChannels.append(channel.name);
+        }
+    }
+
+    const QString nextText = activeChannels.isEmpty()
+            ? tr("Active channels:")
+            : tr("Active channels: %1").arg(activeChannels.join(QLatin1Char(' ')));
+    if (nextText == activeChannelsDisplayText) {
+        return;
+    }
+
+    activeChannelsDisplayText = nextText;
+    activeChannelsLabel->setText(nextText);
+}
+
 void MainWindow::refreshWaterfallChannels(const zapiska::SdrStreamStats *stats)
 {
-    const zapiska::SdrStreamStats streamStats = stats ? *stats : sdrSource.stats();
+    zapiska::SdrStreamStats statsSnapshot;
+    const zapiska::SdrStreamStats *streamStats = stats;
+    if (!streamStats) {
+        statsSnapshot = sdrSource.stats();
+        streamStats = &statsSnapshot;
+    }
+    const QSet<QString> activeIds = unsquelchedChannelIds(*streamStats);
 
     QVector<WaterfallChannelMarker> markers;
     markers.reserve(channelCatalog.size());
@@ -896,7 +940,7 @@ void MainWindow::refreshWaterfallChannels(const zapiska::SdrStreamStats *stats)
             channel.name,
             channel.frequencyHz,
             selected,
-            selected && channelUnsquelched(streamStats, channel.id),
+            selected && activeIds.contains(channel.id),
         });
     }
 
@@ -1192,6 +1236,7 @@ void MainWindow::handleSdrStateChanged(zapiska::SdrSourceState state)
     if (state == zapiska::SdrSourceState::Open || state == zapiska::SdrSourceState::Streaming) {
         updateSdrTuningControls(sdrSource.config());
     }
+    refreshActiveChannelsLabel();
     refreshSdrControls();
 }
 
@@ -1200,6 +1245,7 @@ void MainWindow::handleSdrStatsUpdated(const zapiska::SdrStreamStats &stats)
     sampleCountLabel->setText(tr("Samples: %1").arg(formatSampleCount(stats.samplesRead)));
     widebandPowerLabel->setText(tr("Power: %1").arg(formatWidebandPower(stats)));
     updateChannelMeters(stats);
+    refreshActiveChannelsLabel(&stats);
     refreshWaterfallChannels(&stats);
     refreshSdrControls();
 
@@ -1771,6 +1817,7 @@ void MainWindow::handleChannelItemChanged(QTableWidgetItem *item)
     saveSelectedChannelsToSettings();
     resetChannelDisplay(item->row());
     refreshChannelVisibility();
+    refreshActiveChannelsLabel();
     refreshWaterfallChannels();
 }
 

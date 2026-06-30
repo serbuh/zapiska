@@ -33,6 +33,28 @@ QRgb interpolateColor(const QColor &start, const QColor &end, float ratio)
         interpolate(start.blue(), end.blue(), clampedRatio));
 }
 
+bool sameChannelMarkers(
+    const QVector<WaterfallChannelMarker> &left,
+    const QVector<WaterfallChannelMarker> &right)
+{
+    if (left.size() != right.size()) {
+        return false;
+    }
+
+    for (int index = 0; index < left.size(); ++index) {
+        const auto &leftMarker = left.at(index);
+        const auto &rightMarker = right.at(index);
+        if (leftMarker.name != rightMarker.name
+            || leftMarker.frequencyHz != rightMarker.frequencyHz
+            || leftMarker.selected != rightMarker.selected
+            || leftMarker.unsquelched != rightMarker.unsquelched) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 } // namespace
 
 WaterfallWidget::WaterfallWidget(QWidget *parent)
@@ -48,6 +70,10 @@ QSize WaterfallWidget::minimumSizeHint() const
 
 void WaterfallWidget::setChannelMarkers(const QVector<WaterfallChannelMarker> &markers)
 {
+    if (sameChannelMarkers(channelMarkers, markers)) {
+        return;
+    }
+
     channelMarkers = markers;
     update();
 }

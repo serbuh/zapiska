@@ -22,6 +22,7 @@
 #include <osmosdr/source.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <exception>
 #include <iterator>
@@ -35,6 +36,7 @@ namespace {
 
 constexpr const char *DefaultDeviceArgs = "hackrf=0";
 constexpr int PowerReportsPerSecond = 20;
+constexpr int StatsReportsPerSecond = 5;
 constexpr int SpectrumReportsPerSecond = 8;
 constexpr int SpectrumFftSize = 1024;
 
@@ -85,6 +87,11 @@ quint64 powerReportIntervalSamples(int sampleRateHz)
 quint64 spectrumReportIntervalSamples(int sampleRateHz)
 {
     return static_cast<quint64>(std::max(sampleRateHz / SpectrumReportsPerSecond, 1));
+}
+
+std::chrono::milliseconds statsReportInterval()
+{
+    return std::chrono::milliseconds(1000 / StatsReportsPerSecond);
 }
 
 QVector<SdrChannelConfig> defaultChannelConfigs()
@@ -158,6 +165,7 @@ struct GrOsmoSdrSource::Impl
     SdrSourceConfig activeConfig;
     SdrStreamStats activeStats;
     SdrSourceState activeState = SdrSourceState::Closed;
+    std::chrono::steady_clock::time_point lastStatsReportTime;
     mutable std::mutex mutex;
 
     explicit Impl(GrOsmoSdrSource *source)
@@ -180,6 +188,18 @@ struct GrOsmoSdrSource::Impl
         if (notify) {
             emit owner->stateChanged(newState);
         }
+    }
+
+    bool shouldEmitStatsUpdateLocked(bool force = false)
+    {
+        const auto now = std::chrono::steady_clock::now();
+        if (force || lastStatsReportTime.time_since_epoch().count() == 0
+            || now - lastStatsReportTime >= statsReportInterval()) {
+            lastStatsReportTime = now;
+            return true;
+        }
+
+        return false;
     }
 
     void setError(const QString &message)
@@ -213,14 +233,20 @@ struct GrOsmoSdrSource::Impl
     void updatePower(const IqPowerUpdate &update)
     {
         SdrStreamStats statsSnapshot;
+        bool emitStats = false;
         {
             std::lock_guard<std::mutex> lock(mutex);
             activeStats.samplesRead = update.samplesRead;
             activeStats.hasWidebandPower = true;
             activeStats.widebandPowerDbfs = update.powerDbfs;
-            statsSnapshot = activeStats;
+            emitStats = shouldEmitStatsUpdateLocked();
+            if (emitStats) {
+                statsSnapshot = activeStats;
+            }
         }
-        emit owner->statsUpdated(statsSnapshot);
+        if (emitStats) {
+            emit owner->statsUpdated(statsSnapshot);
+        }
     }
 
     void updateSpectrum(const SdrSpectrumFrame &frame)
@@ -265,6 +291,8 @@ struct GrOsmoSdrSource::Impl
     void updateChannelStats(const ChannelStatsUpdate &update)
     {
         SdrStreamStats statsSnapshot;
+        bool emitStats = false;
+        bool squelchChanged = false;
         {
             std::lock_guard<std::mutex> lock(mutex);
             bool updated = false;
@@ -289,6 +317,9 @@ struct GrOsmoSdrSource::Impl
                         channelStats.audioLevelDbfs = update.stats.audioLevelDbfs;
                     }
                     if (update.stats.hasSquelch) {
+                        squelchChanged = !channelStats.hasSquelch
+                            || channelStats.squelchOpen != update.stats.squelchOpen
+                            || channelStats.squelchMode != update.stats.squelchMode;
                         channelStats.hasSquelch = true;
                         channelStats.squelchOpen = update.stats.squelchOpen;
                         channelStats.squelchThresholdDbfs = update.stats.squelchThresholdDbfs;
@@ -298,12 +329,20 @@ struct GrOsmoSdrSource::Impl
                 }
             }
             if (!updated) {
+                squelchChanged = update.stats.hasSquelch && update.stats.squelchOpen;
                 activeStats.channelStats.append(update.stats);
             }
-            statsSnapshot = activeStats;
+            emitStats = shouldEmitStatsUpdateLocked(squelchChanged);
+            if (emitStats) {
+                statsSnapshot = activeStats;
+            }
         }
-        emit owner->statsUpdated(statsSnapshot);
-        refreshLiveAudioGains();
+        if (emitStats) {
+            emit owner->statsUpdated(statsSnapshot);
+        }
+        if (squelchChanged) {
+            refreshLiveAudioGains();
+        }
     }
 
     void emitStatsSnapshot()
@@ -923,6 +962,7 @@ struct GrOsmoSdrSource::Impl
             std::lock_guard<std::mutex> lock(mutex);
             activeConfig = {};
             activeStats = {};
+            lastStatsReportTime = {};
         }
         setState(SdrSourceState::Closed, notify);
     }

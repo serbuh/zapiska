@@ -35,6 +35,7 @@ private:
     void refreshChannelVisibility();
     void handleChannelHeaderClicked(int section);
     void sortChannelCatalog();
+    void refreshActiveChannelsLabel(const zapiska::SdrStreamStats *stats = nullptr);
     void refreshWaterfallChannels(const zapiska::SdrStreamStats *stats = nullptr);
     void refreshFftControls();
     void refreshFftViewControls();
@@ -118,6 +119,7 @@ private:
     QLabel *rawIqRecordIndicator = nullptr;
     QPushButton *fftButton = nullptr;
     QPushButton *showSelectedOnlyButton = nullptr;
+    QLabel *activeChannelsLabel = nullptr;
     QLabel *fftZoomTitleLabel = nullptr;
     QLabel *fftZoomLabel = nullptr;
     QSlider *fftZoomSlider = nullptr;
@@ -131,6 +133,7 @@ private:
     QVector<zapiska::ChannelConfig> channelCatalog;
     QString channelCatalogPath;
     QString rawIqReplayPath;
+    QString activeChannelsDisplayText;
     int channelSortColumn = -1;
     Qt::SortOrder channelSortOrder = Qt::AscendingOrder;
     bool showSelectedOnly = true;
