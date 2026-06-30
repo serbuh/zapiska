@@ -361,6 +361,7 @@ void MainWindow::buildUi()
 
     fftButton = new QPushButton(tr("FFT Hide"), playbackControls);
     showSelectedOnlyButton = new QPushButton(tr("Show All Channels"), channelFilterControls);
+    fftZoomTitleLabel = new QLabel(tr("Zoom:"), channelControls);
     fftZoomLabel = new QLabel(formatFftZoom(waterfallWidget->horizontalZoom()), channelControls);
     fftZoomLabel->setMinimumWidth(44);
 
@@ -421,7 +422,7 @@ void MainWindow::buildUi()
     playbackControlsLayout->addWidget(fftButton);
     playbackControlsLayout->addStretch();
 
-    channelControlsLayout->addWidget(new QLabel(tr("Zoom:"), channelControls));
+    channelControlsLayout->addWidget(fftZoomTitleLabel);
     channelControlsLayout->addWidget(fftZoomSlider);
     channelControlsLayout->addWidget(fftZoomLabel);
     channelControlsLayout->addWidget(fftScrollBar);
@@ -828,6 +829,7 @@ void MainWindow::refreshFftControls()
 {
     waterfallWidget->setVisible(fftVisible);
     fftButton->setText(fftVisible ? tr("FFT Hide") : tr("FFT Show"));
+    fftZoomTitleLabel->setVisible(fftVisible);
     fftZoomLabel->setVisible(fftVisible);
     fftZoomSlider->setVisible(fftVisible);
     fftScrollBar->setVisible(fftVisible);

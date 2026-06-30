@@ -115,6 +115,7 @@ private:
     QPushButton *rawIqRecordButton = nullptr;
     QPushButton *fftButton = nullptr;
     QPushButton *showSelectedOnlyButton = nullptr;
+    QLabel *fftZoomTitleLabel = nullptr;
     QLabel *fftZoomLabel = nullptr;
     QSlider *fftZoomSlider = nullptr;
     QScrollBar *fftScrollBar = nullptr;
