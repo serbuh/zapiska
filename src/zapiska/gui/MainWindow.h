@@ -6,6 +6,7 @@
 #include <QHash>
 #include <QMainWindow>
 #include <QSet>
+#include <Qt>
 #include <QVector>
 
 class QComboBox;
@@ -32,6 +33,8 @@ private:
     void loadChannels();
     void refreshChannelTable();
     void refreshChannelVisibility();
+    void handleChannelHeaderClicked(int section);
+    void sortChannelCatalog();
     void refreshWaterfallChannels(const zapiska::SdrStreamStats *stats = nullptr);
     void refreshFftControls();
     void refreshFftViewControls();
@@ -121,6 +124,8 @@ private:
     QSet<QString> mutedMonitorChannelIds;
     QVector<zapiska::ChannelConfig> channelCatalog;
     QString rawIqReplayPath;
+    int channelSortColumn = -1;
+    Qt::SortOrder channelSortOrder = Qt::AscendingOrder;
     bool showSelectedOnly = true;
     bool fftVisible = true;
     bool liveAudioDesired = true;

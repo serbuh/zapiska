@@ -5,6 +5,7 @@
 
 #include <QAbstractItemView>
 #include <QBrush>
+#include <QCollator>
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QDateTime>
@@ -386,6 +387,7 @@ void MainWindow::buildUi()
         tr("Recording"),
     });
     channelTable->horizontalHeader()->setStretchLastSection(true);
+    channelTable->horizontalHeader()->setSectionsClickable(true);
     channelTable->verticalHeader()->setVisible(false);
     channelTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     channelTable->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -417,6 +419,11 @@ void MainWindow::buildUi()
     connect(showSelectedOnlyButton, &QPushButton::clicked, this, [this]() {
         toggleShowSelectedOnly(!showSelectedOnly);
     });
+    connect(
+        channelTable->horizontalHeader(),
+        &QHeaderView::sectionClicked,
+        this,
+        &MainWindow::handleChannelHeaderClicked);
     connect(channelTable, &QTableWidget::itemChanged, this, &MainWindow::handleChannelItemChanged);
 
     layout->addWidget(sourceControls);
@@ -668,6 +675,10 @@ void MainWindow::refreshChannelTable()
     }
 
     channelTable->resizeColumnsToContents();
+    if (channelSortColumn >= 0) {
+        channelTable->horizontalHeader()->setSortIndicator(channelSortColumn, channelSortOrder);
+        channelTable->horizontalHeader()->setSortIndicatorShown(true);
+    }
     refreshChannelVisibility();
     updateChannelSelectionControls();
 }
@@ -680,6 +691,64 @@ void MainWindow::refreshChannelVisibility()
     }
 
     showSelectedOnlyButton->setText(showSelectedOnly ? tr("Show All Channels") : tr("Show Selected Channels"));
+}
+
+void MainWindow::handleChannelHeaderClicked(int section)
+{
+    if (section != ChannelNameColumn && section != FrequencyColumn) {
+        return;
+    }
+
+    channelSortOrder = channelSortColumn == section && channelSortOrder == Qt::AscendingOrder
+        ? Qt::DescendingOrder
+        : Qt::AscendingOrder;
+    channelSortColumn = section;
+
+    sortChannelCatalog();
+    refreshChannelTable();
+    refreshWaterfallChannels();
+}
+
+void MainWindow::sortChannelCatalog()
+{
+    if (channelSortColumn != ChannelNameColumn && channelSortColumn != FrequencyColumn) {
+        return;
+    }
+
+    QCollator collator;
+    collator.setCaseSensitivity(Qt::CaseInsensitive);
+    collator.setNumericMode(true);
+
+    const int sortColumn = channelSortColumn;
+    const Qt::SortOrder sortOrder = channelSortOrder;
+    std::stable_sort(channelCatalog.begin(), channelCatalog.end(), [&](const auto &left, const auto &right) {
+        int result = 0;
+        if (sortColumn == FrequencyColumn) {
+            if (left.frequencyHz < right.frequencyHz) {
+                result = -1;
+            } else if (left.frequencyHz > right.frequencyHz) {
+                result = 1;
+            }
+        } else {
+            result = collator.compare(left.name, right.name);
+        }
+
+        if (result == 0) {
+            result = collator.compare(left.name, right.name);
+        }
+        if (result == 0) {
+            if (left.frequencyHz < right.frequencyHz) {
+                result = -1;
+            } else if (left.frequencyHz > right.frequencyHz) {
+                result = 1;
+            }
+        }
+        if (result == 0) {
+            result = collator.compare(left.id, right.id);
+        }
+
+        return sortOrder == Qt::AscendingOrder ? result < 0 : result > 0;
+    });
 }
 
 void MainWindow::refreshWaterfallChannels(const zapiska::SdrStreamStats *stats)
